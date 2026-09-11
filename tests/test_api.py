@@ -137,7 +137,16 @@ async def test_todo_pagination_is_bounded(monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(api_module, "API_MAX_PAGES", 2)
     page = {
         "pages": 3,
-        "list": [{"deviceID": DEVICE_ID, "isCompleted": False}],
+        "list": [
+            {
+                "deviceID": DEVICE_ID,
+                "isCompleted": False,
+                "fileID": "recording-one",
+                "createdTime": 1000,
+                "reminderTime": 2000,
+                "title": "Call the office",
+            }
+        ],
     }
     session = FakeSession(_success(page), _success(page))
     client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
@@ -146,6 +155,9 @@ async def test_todo_pagination_is_bounded(monkeypatch: pytest.MonkeyPatch) -> No
 
     assert result.count == 2
     assert result.truncated is True
+    assert result.items[0].title == "Call the office"
+    assert result.items[0].reminder_time == 2000
+    assert len(result.items[0].uid) == 64
     assert len(session.calls) == 2
     assert session.calls[0]["params"] == {
         "completedNum": 0,

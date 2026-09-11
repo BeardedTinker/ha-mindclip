@@ -2,8 +2,9 @@
 
 from dataclasses import replace
 from datetime import UTC, datetime
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
+from homeassistant.components.todo import TodoItemStatus
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.mindclip import MindClipRuntimeData
@@ -21,6 +22,8 @@ from custom_components.mindclip.sensor import (
     MindClipSensor,
     MindClipSummarySensor,
 )
+from custom_components.mindclip.todo import MindClipTodoListEntity
+from custom_components.mindclip.todo_store import PendingTodo
 
 DEVICE_ID = "MINDCLIP-TEST-001"
 
@@ -42,6 +45,7 @@ def _entry_with_data(hass) -> MockConfigEntry:
     coordinator.async_set_updated_data(
         MindClipData(
             open_todo_count=4,
+            pending_todos=(PendingTodo("a" * 64, "Call the office", 1000, 2000),),
             recording_count=7,
             latest_recording_title="Synthetic meeting",
             latest_summary=RecordingSummary("recording-one", "Short summary"),
@@ -87,6 +91,24 @@ def test_summary_and_charging_entities_are_privacy_limited(hass) -> None:
     assert charging.is_on is True
     assert summary.available is True
     assert charging.available is True
+
+
+async def test_pending_todo_list_acknowledges_completed_items(hass) -> None:
+    """The native To-do entity exposes and locally acknowledges pending items."""
+    entry = _entry_with_data(hass)
+    entity = MindClipTodoListEntity(entry)
+    entity.coordinator.async_acknowledge_todo = AsyncMock()
+
+    item = entity.todo_items[0]
+    assert item.uid == "a" * 64
+    assert item.summary == "Call the office"
+    assert item.status == TodoItemStatus.NEEDS_ACTION
+    assert item.due == datetime.fromtimestamp(2, UTC)
+
+    item.status = TodoItemStatus.COMPLETED
+    await entity.async_update_todo_item(item)
+
+    entity.coordinator.async_acknowledge_todo.assert_awaited_once_with("a" * 64)
 
 
 def test_truncated_todo_count_is_unavailable(hass) -> None:

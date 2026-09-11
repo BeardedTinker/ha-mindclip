@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
 from homeassistant.config_entries import ConfigEntry
@@ -18,6 +18,7 @@ from .api import (
     RecordingSummary,
 )
 from .const import UPDATE_INTERVAL
+from .todo_store import MindClipTodoStore, PendingTodo
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class MindClipData:
     """Privacy-minimized coordinator output."""
 
     open_todo_count: int
+    pending_todos: tuple[PendingTodo, ...]
     recording_count: int | None
     latest_recording_title: str | None
     latest_summary: RecordingSummary | None
@@ -61,6 +63,7 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
         config_entry: ConfigEntry,
         api: MindClipApi,
         device_id: str,
+        todo_store: MindClipTodoStore | None = None,
     ) -> None:
         """Initialize the coordinator."""
         super().__init__(
@@ -72,6 +75,17 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
         )
         self.api = api
         self.device_id = device_id
+        self.todo_store = todo_store or MindClipTodoStore(hass, config_entry.entry_id)
+
+    async def async_initialize(self) -> None:
+        """Load persistent state before the first refresh."""
+        await self.todo_store.async_load()
+
+    async def async_acknowledge_todo(self, uid: str) -> None:
+        """Acknowledge one locally pending To-Do."""
+        pending = await self.todo_store.async_acknowledge(uid)
+        if self.data is not None:
+            self.async_set_updated_data(replace(self.data, pending_todos=pending))
 
     async def _async_update_data(self) -> MindClipData:
         """Fetch primary To-Dos and independently degradable optional data."""
@@ -81,6 +95,10 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
             raise ConfigEntryAuthFailed("SwitchBot authentication failed") from err
         except MindClipApiError as err:
             raise UpdateFailed("Unable to update MindClip To-Do data") from err
+
+        pending_todos = await self.todo_store.async_process(
+            todos.items, truncated=todos.truncated
+        )
 
         charging: bool | None = None
         device_status_healthy = False
@@ -127,6 +145,7 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
 
         return MindClipData(
             open_todo_count=todos.count,
+            pending_todos=pending_todos,
             recording_count=recording_count,
             latest_recording_title=latest_recording_title,
             latest_summary=latest_summary,

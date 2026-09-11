@@ -88,6 +88,11 @@
       "charging": {
         "name": "Charging"
       }
+    },
+    "todo": {
+      "pending_todos": {
+        "name": "Pending To-Dos"
+      }
     }
   }
 }

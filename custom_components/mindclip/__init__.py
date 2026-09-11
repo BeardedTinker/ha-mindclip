@@ -11,7 +11,7 @@ from .api import MindClipApi
 from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID
 from .coordinator import MindClipCoordinator
 
-PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR)
+PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR, Platform.TODO)
 
 
 @dataclass(slots=True)
@@ -38,6 +38,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MindClipConfigEntry) -> 
         api,
         entry.data[CONF_DEVICE_ID],
     )
+    await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = MindClipRuntimeData(api=api, coordinator=coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

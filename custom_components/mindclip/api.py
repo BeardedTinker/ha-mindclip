@@ -95,11 +95,22 @@ class RecordingCollection:
 
 
 @dataclass(frozen=True, slots=True)
+class MindClipTodo:
+    """Minimal To-Do data required for local pending tracking."""
+
+    uid: str
+    title: str
+    created_time: int
+    reminder_time: int | None
+
+
+@dataclass(frozen=True, slots=True)
 class OpenTodoCount:
     """Bounded device-specific open To-Do count."""
 
     count: int
     truncated: bool
+    items: tuple[MindClipTodo, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -230,8 +241,8 @@ class MindClipApi:
         return DeviceStatus(charging=bool(charging_status))
 
     async def async_get_open_todo_count(self, device_id: str) -> OpenTodoCount:
-        """Count open To-Dos for this device without retaining their content."""
-        count = 0
+        """Get bounded open To-Dos for this device."""
+        todos: list[MindClipTodo] = []
         normalized_device_id = normalize_device_id(device_id)
         pages = 1
         for page_number in range(1, API_MAX_PAGES + 1):
@@ -255,10 +266,16 @@ class MindClipApi:
                     not is_completed
                     and normalize_device_id(item_device_id) == normalized_device_id
                 ):
-                    count += 1
+                    todos.append(_parse_todo(item))
             if page_number >= pages:
-                return OpenTodoCount(count=count, truncated=False)
-        return OpenTodoCount(count=count, truncated=pages > API_MAX_PAGES)
+                return OpenTodoCount(
+                    count=len(todos), truncated=False, items=tuple(todos)
+                )
+        return OpenTodoCount(
+            count=len(todos),
+            truncated=pages > API_MAX_PAGES,
+            items=tuple(todos),
+        )
 
     async def async_get_recordings(self, device_id: str) -> RecordingCollection:
         """Get a bounded recording count and latest recording metadata."""
@@ -356,6 +373,25 @@ def _parse_recording(item: Mapping[str, Any]) -> Recording:
         title=title,
         created_time=created_time,
         transcription_status=transcription_status,
+    )
+
+
+def _parse_todo(item: Mapping[str, Any]) -> MindClipTodo:
+    """Return bounded fields needed for pending tracking."""
+    recording_id = _require_string(item.get("fileID"), "recording ID")
+    created_time = _require_non_negative_integer(
+        item.get("createdTime"), "To-Do creation time"
+    )
+    title = _require_string(item.get("title"), "To-Do title")[:MAX_STATE_LENGTH]
+    reminder_time = _require_non_negative_integer(
+        item.get("reminderTime", 0), "To-Do reminder time"
+    )
+    uid = hashlib.sha256(f"{recording_id}|{created_time}".encode()).hexdigest()
+    return MindClipTodo(
+        uid=uid,
+        title=title,
+        created_time=created_time,
+        reminder_time=reminder_time or None,
     )
 
 

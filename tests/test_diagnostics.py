@@ -15,6 +15,7 @@ from custom_components.mindclip.const import (
 )
 from custom_components.mindclip.coordinator import MindClipCoordinator, MindClipData
 from custom_components.mindclip.diagnostics import async_get_config_entry_diagnostics
+from custom_components.mindclip.todo_store import PendingTodo
 
 
 async def test_diagnostics_exclude_credentials_identifiers_and_content(hass) -> None:
@@ -42,6 +43,7 @@ async def test_diagnostics_exclude_credentials_identifiers_and_content(hass) -> 
     coordinator.async_set_updated_data(
         MindClipData(
             open_todo_count=2,
+            pending_todos=(PendingTodo("a" * 64, private_values[4], 1000, 2000),),
             recording_count=3,
             latest_recording_title=private_values[4],
             latest_summary=RecordingSummary(private_values[3], private_values[5]),
@@ -61,6 +63,7 @@ async def test_diagnostics_exclude_credentials_identifiers_and_content(hass) -> 
 
     assert diagnostics["health"]["status"] == "degraded"
     assert diagnostics["data"]["open_todo_count"] == 2
+    assert diagnostics["data"]["pending_todo_count"] == 1
     assert diagnostics["data"]["recordings_truncated"] is True
     for private_value in private_values:
         assert private_value not in serialized

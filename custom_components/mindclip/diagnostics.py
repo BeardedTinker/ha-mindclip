@@ -19,6 +19,7 @@ async def async_get_config_entry_diagnostics(
         },
         "data": {
             "open_todo_count": data.open_todo_count,
+            "pending_todo_count": len(data.pending_todos),
             "recording_count": data.recording_count,
             "latest_recording_present": data.latest_recording_title is not None,
             "summary_present": data.latest_summary is not None,
