@@ -7,13 +7,25 @@
         "description": "Connect one SwitchBot AI MindClip. Credentials are stored in the Home Assistant config entry and are never exposed by entities or diagnostics.",
         "data": {
           "api_token": "API token",
-          "api_secret": "API secret",
-          "device_id": "Device ID"
+          "api_secret": "API secret"
         },
         "data_description": {
           "api_token": "Open Token from SwitchBot Developer Options.",
-          "api_secret": "Secret Key paired with the Open Token.",
-          "device_id": "The SwitchBot device ID for this AI MindClip."
+          "api_secret": "Secret Key paired with the Open Token."
+        }
+      },
+      "select_device": {
+        "title": "Choose a MindClip",
+        "description": "Multiple AI MindClip devices are available to this SwitchBot account.",
+        "data": {
+          "device_id": "MindClip"
+        }
+      },
+      "manual_device": {
+        "title": "Enter the MindClip device ID",
+        "description": "No AI MindClip was returned by device discovery. Enter its SwitchBot device ID manually.",
+        "data": {
+          "device_id": "Device ID"
         }
       },
       "reauth_confirm": {

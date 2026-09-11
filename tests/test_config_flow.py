@@ -6,7 +6,11 @@ from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_RECONFIGURE, SOUR
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.mindclip.api import DeviceStatus, MindClipAuthError
+from custom_components.mindclip.api import (
+    DeviceStatus,
+    MindClipAuthError,
+    MindClipDevice,
+)
 from custom_components.mindclip.const import (
     CONF_API_SECRET,
     CONF_API_TOKEN,
@@ -15,6 +19,10 @@ from custom_components.mindclip.const import (
 )
 
 DEVICE_ID = "MINDCLIP-TEST-001"
+CREDENTIALS = {
+    CONF_API_TOKEN: "token",
+    CONF_API_SECRET: "secret",
+}
 OLD_DATA = {
     CONF_API_TOKEN: "old-token",
     CONF_API_SECRET: "old-secret",
@@ -30,16 +38,21 @@ async def test_user_flow_creates_device_entry(hass) -> None:
     assert result["type"] is FlowResultType.FORM
 
     status_mock = AsyncMock(return_value=DeviceStatus(charging=False))
-    with patch(
-        "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-        status_mock,
+    with (
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
+            AsyncMock(return_value=[MindClipDevice(DEVICE_ID, "Pocket notes")]),
+        ),
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
+            status_mock,
+        ),
     ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"],
             {
                 CONF_API_TOKEN: " token ",
                 CONF_API_SECRET: " secret ",
-                CONF_DEVICE_ID: " mindclip-test-001 ",
             },
         )
 
@@ -60,11 +73,11 @@ async def test_user_flow_rejects_invalid_auth(hass) -> None:
         DOMAIN, context={"source": SOURCE_USER}
     )
     with patch(
-        "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
+        "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
         AsyncMock(side_effect=MindClipAuthError),
     ):
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], OLD_DATA
+            result["flow_id"], CREDENTIALS
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -82,16 +95,84 @@ async def test_user_flow_rejects_duplicate_device(hass) -> None:
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": SOURCE_USER}
     )
-    with patch(
-        "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-        AsyncMock(return_value=DeviceStatus(charging=False)),
+    with (
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
+            AsyncMock(return_value=[MindClipDevice(DEVICE_ID, "Pocket notes")]),
+        ),
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
+            AsyncMock(return_value=DeviceStatus(charging=False)),
+        ),
     ):
         result = await hass.config_entries.flow.async_configure(
-            result["flow_id"], OLD_DATA
+            result["flow_id"], CREDENTIALS
         )
 
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_user_flow_selects_from_multiple_devices(hass) -> None:
+    """Multiple discovered MindClips are presented for selection."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    devices = [
+        MindClipDevice(DEVICE_ID, "Pocket notes"),
+        MindClipDevice("MINDCLIP-TEST-002", "Office notes"),
+    ]
+    with (
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
+            AsyncMock(return_value=devices),
+        ),
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
+            AsyncMock(return_value=DeviceStatus(charging=False)),
+        ),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], CREDENTIALS
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "select_device"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_DEVICE_ID: "MINDCLIP-TEST-002"}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_DEVICE_ID] == "MINDCLIP-TEST-002"
+
+
+async def test_user_flow_falls_back_to_manual_device_id(hass) -> None:
+    """An account with no discovered MindClip can enter its device ID manually."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    with (
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
+            AsyncMock(return_value=DeviceStatus(charging=False)),
+        ),
+    ):
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], CREDENTIALS
+        )
+        assert result["type"] is FlowResultType.FORM
+        assert result["step_id"] == "manual_device"
+
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {CONF_DEVICE_ID: " mindclip-test-001 "}
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_DEVICE_ID] == DEVICE_ID
 
 
 async def test_reauth_updates_only_existing_entry(hass) -> None:

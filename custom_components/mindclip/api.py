@@ -60,6 +60,14 @@ class MindClipSchemaError(MindClipApiError):
 
 
 @dataclass(frozen=True, slots=True)
+class MindClipDevice:
+    """A discovered AI MindClip available to the account."""
+
+    device_id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class DeviceStatus:
     """Privacy-minimized MindClip device status."""
 
@@ -186,6 +194,28 @@ class MindClipApi:
 
         return _require_mapping(payload.get("body"), "response body")
 
+    async def async_get_devices(self) -> list[MindClipDevice]:
+        """Discover AI MindClip devices available to the account."""
+        body = await self._async_request("/devices")
+        items = body.get("deviceList")
+        if not isinstance(items, list):
+            raise MindClipSchemaError("SwitchBot returned an invalid device list")
+
+        devices: dict[str, MindClipDevice] = {}
+        for raw_item in items:
+            item = _require_mapping(raw_item, "device list item")
+            if item.get("deviceType") != "AI MindClip":
+                continue
+            device_id = normalize_device_id(
+                _require_string(item.get("deviceId"), "device ID")
+            )
+            name = item.get("deviceName")
+            if not isinstance(name, str) or not (name := name.strip()):
+                name = _entry_device_name(device_id)
+            devices[device_id] = MindClipDevice(device_id=device_id, name=name)
+
+        return sorted(devices.values(), key=lambda device: device.name.casefold())
+
     async def async_get_device_status(self, device_id: str) -> DeviceStatus:
         """Get and minimize device status."""
         body = await self._async_request(f"/devices/{quote(device_id, safe='')}/status")
@@ -286,6 +316,11 @@ class MindClipApi:
 def normalize_device_id(device_id: str) -> str:
     """Normalize a stable SwitchBot device identifier."""
     return device_id.strip().upper()
+
+
+def _entry_device_name(device_id: str) -> str:
+    """Return a fallback name for a discovered device."""
+    return f"MindClip {device_id[-6:]}"
 
 
 def _parse_page(body: Mapping[str, Any]) -> tuple[int, list[Mapping[str, Any]]]:

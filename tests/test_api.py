@@ -9,6 +9,7 @@ from custom_components.mindclip import api as api_module
 from custom_components.mindclip.api import (
     MindClipApi,
     MindClipAuthError,
+    MindClipDevice,
     MindClipResponseError,
     MindClipSchemaError,
 )
@@ -60,6 +61,36 @@ class FakeSession:
 def _success(body: object) -> FakeResponse:
     """Return a successful SwitchBot response."""
     return FakeResponse({"statusCode": 100, "message": "success", "body": body})
+
+
+@pytest.mark.asyncio
+async def test_device_discovery_filters_mindclips() -> None:
+    """Device discovery returns only normalized AI MindClip devices."""
+    session = FakeSession(
+        _success(
+            {
+                "deviceList": [
+                    {
+                        "deviceId": "hub-one",
+                        "deviceName": "Hub",
+                        "deviceType": "Hub 2",
+                    },
+                    {
+                        "deviceId": "mindclip-test-001",
+                        "deviceName": "Pocket notes",
+                        "deviceType": "AI MindClip",
+                    },
+                ],
+                "infraredRemoteList": [],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    devices = await client.async_get_devices()
+
+    assert devices == [MindClipDevice(DEVICE_ID, "Pocket notes")]
+    assert session.calls[0]["url"] == f"{API_BASE_URL}/devices"
 
 
 @pytest.mark.asyncio

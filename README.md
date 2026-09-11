@@ -2,7 +2,7 @@
 
 MindClip is an unofficial alpha-quality Home Assistant custom integration for ingesting selected data from a SwitchBot AI MindClip through SwitchBot OpenAPI v1.1.
 
-Version 0.1.0 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
+Version 0.1.1 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
 
 ## Features
 
@@ -32,9 +32,8 @@ Create a SwitchBot Open Token and Secret Key from Developer Options in the Switc
 
 - API token
 - API secret
-- AI MindClip device ID
 
-Setup validates access by requesting device status. One config entry represents one physical MindClip, and multiple MindClips can be configured. Credentials can be replaced through reauthentication; reconfiguration validates updates while preserving the device identity.
+The integration discovers AI MindClip devices on the SwitchBot account. A single device is selected automatically; multiple devices are shown in a dropdown. Manual device ID entry is offered only if discovery returns no MindClip. Setup then validates access by requesting device status. One config entry represents one physical MindClip, and multiple MindClips can be configured. Credentials can be replaced through reauthentication; reconfiguration validates updates while preserving the device identity.
 
 SwitchBot documents OpenAPI as limited to personal use and 10,000 calls per user per day. Commercial or large-scale use requires an arrangement with SwitchBot.
 
