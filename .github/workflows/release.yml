@@ -2,8 +2,13 @@ name: Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+    paths:
+      - RELEASE_NOTES.md
+      - .github/workflows/release.yml
 
 permissions:
   contents: write
@@ -15,14 +20,25 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
-      - name: Verify release version
+      - name: Determine release version
+        id: version
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           manifest_version=$(python -c 'import json; print(json.load(open("custom_components/mindclip/manifest.json"))["version"])')
-          test "v${manifest_version}" = "${RELEASE_TAG}"
+          expected_tag="v${manifest_version}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            test "${expected_tag}" = "${RELEASE_TAG}"
+          fi
+          echo "tag=${expected_tag}" >> "${GITHUB_OUTPUT}"
 
-      - name: Create GitHub release
+      - name: Publish release notes
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${{ github.ref_name }}" --generate-notes --verify-tag
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release edit "${RELEASE_TAG}" --notes-file RELEASE_NOTES.md
+          elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            gh release create "${RELEASE_TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+          fi
