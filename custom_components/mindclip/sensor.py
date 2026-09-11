@@ -105,14 +105,14 @@ class MindClipSummarySensor(MindClipEntity, SensorEntity):
 
     @property
     def native_value(self) -> StateType:
-        """Return the recording ID associated with the latest summary."""
+        """Return the conservatively capped summary text."""
         summary = self.coordinator.data.latest_summary
-        return summary.recording_id if summary is not None else None
+        return summary.short_text if summary is not None else None
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:
-        """Return only the conservatively capped summary text."""
+        """Return the recording ID associated with the latest summary."""
         summary = self.coordinator.data.latest_summary
-        if summary is None or summary.short_text is None:
+        if summary is None:
             return None
-        return {"summary": summary.short_text}
+        return {"recording_id": summary.recording_id}

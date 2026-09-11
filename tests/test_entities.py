@@ -82,8 +82,8 @@ def test_summary_and_charging_entities_are_privacy_limited(hass) -> None:
     summary = MindClipSummarySensor(entry)
     charging = MindClipChargingSensor(entry)
 
-    assert summary.native_value == "recording-one"
-    assert summary.extra_state_attributes == {"summary": "Short summary"}
+    assert summary.native_value == "Short summary"
+    assert summary.extra_state_attributes == {"recording_id": "recording-one"}
     assert charging.is_on is True
     assert summary.available is True
     assert charging.available is True
