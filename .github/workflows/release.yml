@@ -8,6 +8,7 @@ on:
       - "v*"
     paths:
       - RELEASE_NOTES.md
+      - RELEASE_TITLE
       - .github/workflows/release.yml
 
 permissions:
@@ -37,8 +38,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ steps.version.outputs.tag }}
         run: |
+          release_title=$(< RELEASE_TITLE)
+          test -n "${release_title}"
           if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
-            gh release edit "${RELEASE_TAG}" --title "MindClip ${RELEASE_TAG}" --notes-file RELEASE_NOTES.md
+            gh release edit "${RELEASE_TAG}" --title "${release_title}" --notes-file RELEASE_NOTES.md
           elif [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
-            gh release create "${RELEASE_TAG}" --title "MindClip ${RELEASE_TAG}" --notes-file RELEASE_NOTES.md --verify-tag
+            gh release create "${RELEASE_TAG}" --title "${release_title}" --notes-file RELEASE_NOTES.md --verify-tag
           fi
