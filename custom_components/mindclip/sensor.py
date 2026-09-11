@@ -4,9 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorEntityDescription
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -58,7 +63,9 @@ async def async_setup_entry(
     async_add_entities(
         MindClipSensor(entry, description) for description in SENSOR_DESCRIPTIONS
     )
-    async_add_entities([MindClipSummarySensor(entry)])
+    async_add_entities(
+        [MindClipSummarySensor(entry), MindClipLastSuccessfulPollSensor(entry)]
+    )
 
 
 class MindClipSensor(MindClipEntity, SensorEntity):
@@ -116,3 +123,25 @@ class MindClipSummarySensor(MindClipEntity, SensorEntity):
         if summary is None:
             return None
         return {"recording_id": summary.recording_id}
+
+
+class MindClipLastSuccessfulPollSensor(MindClipEntity, SensorEntity):
+    """Represent the last successful coordinator poll."""
+
+    _attr_translation_key = "last_successful_poll"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_icon = "mdi:cloud-check-outline"
+
+    def __init__(self, entry: MindClipConfigEntry) -> None:
+        """Initialize the poll timestamp sensor."""
+        super().__init__(entry, entry.runtime_data.coordinator, "last_successful_poll")
+
+    @property
+    def available(self) -> bool:
+        """Keep the previous timestamp visible after a failed poll."""
+        return self.coordinator.data is not None
+
+    @property
+    def native_value(self) -> datetime:
+        """Return the timestamp of the latest successful poll."""
+        return self.coordinator.data.updated_at

@@ -82,6 +82,9 @@
       },
       "latest_summary": {
         "name": "Latest summary"
+      },
+      "last_successful_poll": {
+        "name": "Last successful poll"
       }
     },
     "binary_sensor": {

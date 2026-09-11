@@ -19,6 +19,7 @@ from custom_components.mindclip.const import (
 from custom_components.mindclip.coordinator import MindClipCoordinator, MindClipData
 from custom_components.mindclip.sensor import (
     SENSOR_DESCRIPTIONS,
+    MindClipLastSuccessfulPollSensor,
     MindClipSensor,
     MindClipSummarySensor,
 )
@@ -91,6 +92,16 @@ def test_summary_and_charging_entities_are_privacy_limited(hass) -> None:
     assert charging.is_on is True
     assert summary.available is True
     assert charging.available is True
+
+
+def test_last_successful_poll_remains_visible_after_failure(hass) -> None:
+    """The last good poll timestamp remains visible after a failed refresh."""
+    entry = _entry_with_data(hass)
+    sensor = MindClipLastSuccessfulPollSensor(entry)
+    entry.runtime_data.coordinator.last_update_success = False
+
+    assert sensor.native_value == datetime(2026, 9, 11, tzinfo=UTC)
+    assert sensor.available is True
 
 
 async def test_pending_todo_list_acknowledges_completed_items(hass) -> None:

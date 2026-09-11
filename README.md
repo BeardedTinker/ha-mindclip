@@ -2,7 +2,7 @@
 
 MindClip is an unofficial alpha-quality Home Assistant custom integration for ingesting selected data from a SwitchBot AI MindClip through SwitchBot OpenAPI v1.1.
 
-Version 0.2.0 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
+Version 0.2.1 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
 
 ## Features
 
@@ -14,6 +14,7 @@ Each configured physical MindClip creates these entities:
 - Latest summary text capped at 255 characters, with its recording ID as an attribute
 - Charging status
 - Pending To-Dos as a native Home Assistant To-do list
+- Last successful poll timestamp, retained when a later refresh fails
 
 The integration polls every 30 minutes. To-Dos are the primary data source. Device status, recording, and summary failures degrade only their related entities when possible. Authentication failures start Home Assistant's reauthentication flow.
 
