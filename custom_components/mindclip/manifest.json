@@ -1,0 +1,14 @@
+{
+  "domain": "mindclip",
+  "name": "MindClip",
+  "after_dependencies": [],
+  "codeowners": ["@BeardedTinker"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/BeardedTinker/ha-mindclip",
+  "integration_type": "device",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/BeardedTinker/ha-mindclip/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

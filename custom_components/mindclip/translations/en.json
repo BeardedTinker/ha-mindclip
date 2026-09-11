@@ -1,0 +1,81 @@
+{
+  "title": "MindClip",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up MindClip",
+        "description": "Connect one SwitchBot AI MindClip. Credentials are stored in the Home Assistant config entry and are never exposed by entities or diagnostics.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API secret",
+          "device_id": "Device ID"
+        },
+        "data_description": {
+          "api_token": "Open Token from SwitchBot Developer Options.",
+          "api_secret": "Secret Key paired with the Open Token.",
+          "device_id": "The SwitchBot device ID for this AI MindClip."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate MindClip",
+        "description": "SwitchBot rejected the saved credentials. Enter a valid API token and API secret for this MindClip.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API secret"
+        },
+        "data_description": {
+          "api_token": "Replacement Open Token from SwitchBot Developer Options.",
+          "api_secret": "Replacement Secret Key paired with the Open Token."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure MindClip",
+        "description": "Validate and update this MindClip configuration. The device ID must continue to identify the same physical device.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API secret",
+          "device_id": "Device ID"
+        },
+        "data_description": {
+          "api_token": "Open Token from SwitchBot Developer Options.",
+          "api_secret": "Secret Key paired with the Open Token.",
+          "device_id": "The existing SwitchBot device ID for this AI MindClip."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "SwitchBot rejected the API token or secret.",
+      "cannot_connect": "Unable to connect to SwitchBot. Try again later.",
+      "invalid_device": "SwitchBot could not find an accessible AI MindClip with this device ID.",
+      "invalid_response": "SwitchBot returned unexpected device data.",
+      "api_error": "SwitchBot rejected the request. Verify the device ID and try again."
+    },
+    "abort": {
+      "already_configured": "This MindClip is already configured.",
+      "reauth_successful": "MindClip credentials were updated successfully.",
+      "reconfigure_successful": "MindClip configuration was updated successfully.",
+      "unique_id_mismatch": "The device ID does not match this config entry. Add it as a separate MindClip instead."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "open_todo_count": {
+        "name": "Open To-Do count"
+      },
+      "recording_count": {
+        "name": "Recording count"
+      },
+      "latest_recording_title": {
+        "name": "Latest recording title"
+      },
+      "latest_summary": {
+        "name": "Latest summary"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "Charging"
+      }
+    }
+  }
+}
