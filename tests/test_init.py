@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -82,5 +83,9 @@ async def test_setup_and_unload_entry(hass) -> None:
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
-    assert hass.states.get(todo_entity_id) is None
-    assert hass.states.get(charging_entity_id) is None
+    todo_state = hass.states.get(todo_entity_id)
+    charging_state = hass.states.get(charging_entity_id)
+    assert todo_state is not None
+    assert charging_state is not None
+    assert todo_state.state == STATE_UNAVAILABLE
+    assert charging_state.state == STATE_UNAVAILABLE

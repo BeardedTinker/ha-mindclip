@@ -104,6 +104,7 @@ async def test_successful_refresh_collects_minimal_data(hass) -> None:
             truncated=False,
         )
     )
+    api.async_get_summary = AsyncMock()
     coordinator = MindClipCoordinator(hass, _entry(), api, DEVICE_ID)
 
     data = await coordinator._async_update_data()
