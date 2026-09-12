@@ -1,0 +1,120 @@
+{
+  "title": "MindClip",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Postavljanje MindClipa",
+        "description": "Povežite jedan SwitchBot AI MindClip. Vjerodajnice se spremaju u konfiguracijski zapis Home Assistanta i nikada se ne izlažu putem entiteta ili dijagnostike.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API tajna"
+        },
+        "data_description": {
+          "api_token": "Open Token iz SwitchBot razvojnih opcija.",
+          "api_secret": "Secret Key povezan s Open Tokenom."
+        }
+      },
+      "select_device": {
+        "title": "Odaberite MindClip",
+        "description": "Ovom SwitchBot računu dostupno je više AI MindClip uređaja.",
+        "data": {
+          "device_id": "MindClip"
+        }
+      },
+      "manual_device": {
+        "title": "Unesite ID MindClip uređaja",
+        "description": "Otkrivanje uređaja nije pronašlo nijedan AI MindClip. Ručno unesite njegov SwitchBot ID uređaja.",
+        "data": {
+          "device_id": "ID uređaja"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Ponovna autentifikacija MindClipa",
+        "description": "SwitchBot je odbio spremljene vjerodajnice. Unesite valjani API token i API tajnu za ovaj MindClip.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API tajna"
+        },
+        "data_description": {
+          "api_token": "Zamjenski Open Token iz SwitchBot razvojnih opcija.",
+          "api_secret": "Zamjenski Secret Key povezan s Open Tokenom."
+        }
+      },
+      "reconfigure": {
+        "title": "Ponovna konfiguracija MindClipa",
+        "description": "Provjerite i ažurirajte ovu MindClip konfiguraciju. ID uređaja mora i dalje označavati isti fizički uređaj.",
+        "data": {
+          "api_token": "API token",
+          "api_secret": "API tajna",
+          "device_id": "ID uređaja"
+        },
+        "data_description": {
+          "api_token": "Open Token iz SwitchBot razvojnih opcija.",
+          "api_secret": "Secret Key povezan s Open Tokenom.",
+          "device_id": "Postojeći SwitchBot ID uređaja za ovaj AI MindClip."
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "SwitchBot je odbio API token ili tajnu.",
+      "cannot_connect": "Povezivanje sa SwitchBotom nije uspjelo. Pokušajte ponovno kasnije.",
+      "invalid_device": "SwitchBot nije pronašao dostupan AI MindClip s ovim ID-om uređaja.",
+      "invalid_response": "SwitchBot je vratio neočekivane podatke uređaja.",
+      "api_error": "SwitchBot je odbio zahtjev. Provjerite ID uređaja i pokušajte ponovno."
+    },
+    "abort": {
+      "already_configured": "Ovaj MindClip već je konfiguriran.",
+      "reauth_successful": "Vjerodajnice za MindClip uspješno su ažurirane.",
+      "reconfigure_successful": "MindClip konfiguracija uspješno je ažurirana.",
+      "unique_id_mismatch": "ID uređaja ne odgovara ovom konfiguracijskom zapisu. Dodajte ga kao zaseban MindClip."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Neobavezna sinkronizacija kalendara",
+        "description": "Stvarajte događaje u kalendaru za novootkrivene MindClip zadatke s podsjetnikom. Ostavite kalendar praznim kako biste isključili sinkronizaciju.",
+        "data": {
+          "calendar_entity": "Kalendar",
+          "event_duration_minutes": "Trajanje događaja"
+        },
+        "data_description": {
+          "calendar_entity": "Home Assistant kalendar koji podržava stvaranje događaja.",
+          "event_duration_minutes": "Trajanje svakog stvorenog događaja u minutama."
+        }
+      }
+    },
+    "error": {
+      "calendar_not_writable": "Odaberite kalendar koji podržava stvaranje događaja."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "open_todo_count": {
+        "name": "Broj otvorenih zadataka"
+      },
+      "recording_count": {
+        "name": "Broj snimki"
+      },
+      "latest_recording_title": {
+        "name": "Naslov najnovije snimke"
+      },
+      "latest_summary": {
+        "name": "Najnoviji sažetak"
+      },
+      "last_successful_poll": {
+        "name": "Posljednje uspješno dohvaćanje"
+      }
+    },
+    "binary_sensor": {
+      "charging": {
+        "name": "Punjenje"
+      }
+    },
+    "todo": {
+      "pending_todos": {
+        "name": "Zadaci na čekanju"
+      }
+    }
+  }
+}
