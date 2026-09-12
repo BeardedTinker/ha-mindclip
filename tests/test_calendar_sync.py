@@ -50,7 +50,7 @@ async def test_sync_creates_event_and_acknowledges(hass) -> None:
         coordinator,
     )
 
-    with patch.object(hass.services, "async_call", service_call):
+    with patch.object(type(hass.services), "async_call", service_call):
         await sync._async_sync()
 
     assert service_call.await_args_list[0].args[:2] == (
@@ -91,7 +91,7 @@ async def test_sync_acknowledges_existing_event_without_duplicate(hass) -> None:
         hass, {CONF_CALENDAR_ENTITY: CALENDAR_ENTITY}, coordinator
     )
 
-    with patch.object(hass.services, "async_call", service_call):
+    with patch.object(type(hass.services), "async_call", service_call):
         await sync._async_sync()
 
     service_call.assert_awaited_once()
@@ -106,7 +106,7 @@ async def test_sync_leaves_items_without_reminders_pending(hass) -> None:
         hass, {CONF_CALENDAR_ENTITY: CALENDAR_ENTITY}, coordinator
     )
 
-    with patch.object(hass.services, "async_call", service_call):
+    with patch.object(type(hass.services), "async_call", service_call):
         await sync._async_sync()
 
     service_call.assert_not_awaited()
@@ -121,7 +121,7 @@ async def test_sync_failure_leaves_item_pending(hass) -> None:
         hass, {CONF_CALENDAR_ENTITY: CALENDAR_ENTITY}, coordinator
     )
 
-    with patch.object(hass.services, "async_call", service_call):
+    with patch.object(type(hass.services), "async_call", service_call):
         await sync._async_sync()
 
     coordinator.async_acknowledge_todo.assert_not_awaited()
