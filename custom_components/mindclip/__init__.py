@@ -8,6 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import MindClipApi
+from .calendar_sync import MindClipCalendarSync
 from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID
 from .coordinator import MindClipCoordinator
 
@@ -40,8 +41,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: MindClipConfigEntry) -> 
     )
     await coordinator.async_initialize()
     await coordinator.async_config_entry_first_refresh()
+    calendar_sync = MindClipCalendarSync(hass, entry.options, coordinator)
     entry.runtime_data = MindClipRuntimeData(api=api, coordinator=coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    calendar_sync.async_start()
+    entry.async_on_unload(calendar_sync.async_stop)
     return True
 
 

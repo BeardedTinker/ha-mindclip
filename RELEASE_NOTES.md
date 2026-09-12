@@ -1,9 +1,9 @@
 ## What's changed
 
-- A new Last successful poll sensor shows when MindClip data was last refreshed.
-- The sensor uses the existing coordinator timestamp and makes no additional API requests.
-- Its previous timestamp remains visible when a later refresh fails.
+- Optional Calendar sync can target any writable Home Assistant Calendar entity.
+- Reminder To-Dos create fixed-duration events and are acknowledged only after successful delivery.
+- Existing events are detected by hashed To-Do ID or matching title and start time to prevent duplicates.
 
-Existing config entries need no reconfiguration; install the update and restart Home Assistant.
+Calendar sync is disabled by default. Install the update, restart Home Assistant, then open the MindClip integration's Configure dialog to enable it.
 
-[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.2.0...v0.2.1)
+[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.2.1...v0.3.0)

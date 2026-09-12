@@ -6,9 +6,21 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+from homeassistant.components.calendar.const import CalendarEntityFeature
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithReload,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    EntitySelector,
+    EntitySelectorConfig,
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
     TextSelector,
     TextSelectorConfig,
     TextSelectorType,
@@ -23,7 +35,15 @@ from .api import (
     MindClipSchemaError,
     normalize_device_id,
 )
-from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID, DOMAIN
+from .const import (
+    CONF_API_SECRET,
+    CONF_API_TOKEN,
+    CONF_CALENDAR_ENTITY,
+    CONF_DEVICE_ID,
+    CONF_EVENT_DURATION_MINUTES,
+    DEFAULT_EVENT_DURATION_MINUTES,
+    DOMAIN,
+)
 
 
 def _auth_schema() -> vol.Schema:
@@ -65,10 +85,39 @@ def _reauth_schema() -> vol.Schema:
     return _auth_schema()
 
 
+def _options_schema() -> vol.Schema:
+    """Return optional Calendar sync settings."""
+    return vol.Schema(
+        {
+            vol.Optional(CONF_CALENDAR_ENTITY): EntitySelector(
+                EntitySelectorConfig(domain="calendar")
+            ),
+            vol.Required(
+                CONF_EVENT_DURATION_MINUTES,
+                default=DEFAULT_EVENT_DURATION_MINUTES,
+            ): NumberSelector(
+                NumberSelectorConfig(
+                    min=5,
+                    max=1440,
+                    step=5,
+                    mode=NumberSelectorMode.BOX,
+                    unit_of_measurement="minutes",
+                )
+            ),
+        }
+    )
+
+
 class MindClipConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle the MindClip config flow."""
 
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> MindClipOptionsFlow:
+        """Create the options flow."""
+        return MindClipOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -244,6 +293,44 @@ class MindClipConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
+class MindClipOptionsFlow(OptionsFlowWithReload):
+    """Manage optional MindClip features."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Configure optional Calendar synchronization."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            calendar_entity = user_input.get(CONF_CALENDAR_ENTITY)
+            if calendar_entity:
+                state = self.hass.states.get(str(calendar_entity))
+                supported_features = (
+                    state.attributes.get("supported_features", 0) if state else 0
+                )
+                if not supported_features & CalendarEntityFeature.CREATE_EVENT:
+                    errors["base"] = "calendar_not_writable"
+                else:
+                    return self.async_create_entry(data=_normalize_options(user_input))
+            else:
+                return self.async_create_entry(data=_normalize_options(user_input))
+
+        suggested: dict[str, Any] = dict(user_input or {})
+        if not suggested:
+            suggested[CONF_EVENT_DURATION_MINUTES] = self.config_entry.options.get(
+                CONF_EVENT_DURATION_MINUTES, DEFAULT_EVENT_DURATION_MINUTES
+            )
+            if calendar_entity := self.config_entry.options.get(CONF_CALENDAR_ENTITY):
+                suggested[CONF_CALENDAR_ENTITY] = calendar_entity
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(
+                _options_schema(), suggested
+            ),
+            errors=errors,
+        )
+
+
 def _normalize_input(user_input: dict[str, Any]) -> dict[str, str]:
     """Normalize config entry values."""
     return {
@@ -259,6 +346,16 @@ def _normalize_credentials(user_input: dict[str, Any]) -> dict[str, str]:
         CONF_API_TOKEN: str(user_input[CONF_API_TOKEN]).strip(),
         CONF_API_SECRET: str(user_input[CONF_API_SECRET]).strip(),
     }
+
+
+def _normalize_options(user_input: dict[str, Any]) -> dict[str, str | int]:
+    """Normalize optional feature settings."""
+    options: dict[str, str | int] = {
+        CONF_EVENT_DURATION_MINUTES: int(user_input[CONF_EVENT_DURATION_MINUTES])
+    }
+    if calendar_entity := user_input.get(CONF_CALENDAR_ENTITY):
+        options[CONF_CALENDAR_ENTITY] = str(calendar_entity)
+    return options
 
 
 def _entry_title(device_id: str) -> str:

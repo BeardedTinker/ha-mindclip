@@ -7,6 +7,10 @@ DOMAIN = "mindclip"
 CONF_API_TOKEN = "api_token"
 CONF_API_SECRET = "api_secret"
 CONF_DEVICE_ID = "device_id"
+CONF_CALENDAR_ENTITY = "calendar_entity"
+CONF_EVENT_DURATION_MINUTES = "event_duration_minutes"
+
+DEFAULT_EVENT_DURATION_MINUTES = 30
 
 API_BASE_URL = "https://api.switch-bot.com/v1.1"
 API_REQUEST_TIMEOUT = 10

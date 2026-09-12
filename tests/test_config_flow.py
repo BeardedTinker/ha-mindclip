@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+from homeassistant.components.calendar.const import CalendarEntityFeature
 from homeassistant.config_entries import SOURCE_REAUTH, SOURCE_RECONFIGURE, SOURCE_USER
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -14,11 +15,14 @@ from custom_components.mindclip.api import (
 from custom_components.mindclip.const import (
     CONF_API_SECRET,
     CONF_API_TOKEN,
+    CONF_CALENDAR_ENTITY,
     CONF_DEVICE_ID,
+    CONF_EVENT_DURATION_MINUTES,
     DOMAIN,
 )
 
 DEVICE_ID = "MINDCLIP-TEST-001"
+CALENDAR_ENTITY = "calendar.mindclip"
 CREDENTIALS = {
     CONF_API_TOKEN: "token",
     CONF_API_SECRET: "secret",
@@ -253,3 +257,55 @@ async def test_reconfigure_updates_existing_entry(hass) -> None:
     assert entry.data[CONF_API_TOKEN] == "updated-token"
     assert entry.data[CONF_DEVICE_ID] == DEVICE_ID
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+
+async def test_options_enable_calendar_sync_and_reload(hass) -> None:
+    """A writable Calendar and duration are stored as reloadable options."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="MindClip ST-001",
+        data=OLD_DATA,
+        unique_id=DEVICE_ID,
+    )
+    entry.add_to_hass(hass)
+    hass.states.async_set(
+        CALENDAR_ENTITY,
+        "off",
+        {"supported_features": CalendarEntityFeature.CREATE_EVENT},
+    )
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    with patch.object(
+        hass.config_entries, "async_reload", AsyncMock(return_value=True)
+    ):
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                CONF_CALENDAR_ENTITY: CALENDAR_ENTITY,
+                CONF_EVENT_DURATION_MINUTES: 45,
+            },
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options == {
+        CONF_CALENDAR_ENTITY: CALENDAR_ENTITY,
+        CONF_EVENT_DURATION_MINUTES: 45,
+    }
+
+
+async def test_options_reject_read_only_calendar(hass) -> None:
+    """Calendar sync cannot target a read-only calendar."""
+    entry = MockConfigEntry(domain=DOMAIN, data=OLD_DATA, unique_id=DEVICE_ID)
+    entry.add_to_hass(hass)
+    hass.states.async_set(CALENDAR_ENTITY, "off", {"supported_features": 0})
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_CALENDAR_ENTITY: CALENDAR_ENTITY,
+            CONF_EVENT_DURATION_MINUTES: 30,
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "calendar_not_writable"}

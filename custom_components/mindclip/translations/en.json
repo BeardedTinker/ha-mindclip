@@ -69,6 +69,25 @@
       "unique_id_mismatch": "The device ID does not match this config entry. Add it as a separate MindClip instead."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Optional Calendar sync",
+        "description": "Create Calendar events for newly discovered MindClip To-Dos that have reminders. Leave Calendar empty to disable synchronization.",
+        "data": {
+          "calendar_entity": "Calendar",
+          "event_duration_minutes": "Event duration"
+        },
+        "data_description": {
+          "calendar_entity": "A writable Home Assistant Calendar entity.",
+          "event_duration_minutes": "Duration of each created event in minutes."
+        }
+      }
+    },
+    "error": {
+      "calendar_not_writable": "Select a Calendar that supports creating events."
+    }
+  },
   "entity": {
     "sensor": {
       "open_todo_count": {

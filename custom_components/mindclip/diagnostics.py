@@ -5,7 +5,12 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from . import MindClipConfigEntry
-from .const import UPDATE_INTERVAL
+from .const import (
+    CONF_CALENDAR_ENTITY,
+    CONF_EVENT_DURATION_MINUTES,
+    DEFAULT_EVENT_DURATION_MINUTES,
+    UPDATE_INTERVAL,
+)
 
 
 async def async_get_config_entry_diagnostics(
@@ -16,6 +21,10 @@ async def async_get_config_entry_diagnostics(
     return {
         "config": {
             "poll_interval_minutes": int(UPDATE_INTERVAL.total_seconds() / 60),
+            "calendar_sync_configured": bool(entry.options.get(CONF_CALENDAR_ENTITY)),
+            "calendar_event_duration_minutes": entry.options.get(
+                CONF_EVENT_DURATION_MINUTES, DEFAULT_EVENT_DURATION_MINUTES
+            ),
         },
         "data": {
             "open_todo_count": data.open_todo_count,
