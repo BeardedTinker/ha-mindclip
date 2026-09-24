@@ -1,8 +1,9 @@
 ## What's changed
 
-- Added a complete Croatian translation for setup, reauthentication, options, errors, and entity names.
-- English remains the fallback for every other Home Assistant language.
+- Invalid or out-of-range reminder timestamps no longer stop Calendar synchronization.
+- A malformed reminder remains pending while later valid reminders continue to sync.
+- Added regression coverage for the failure case.
 
-Install the update and restart Home Assistant. Croatian text is selected automatically when the Home Assistant user language is Croatian.
+Install the update and restart Home Assistant to load the new integration code.
 
-[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.3.0...v0.3.1)
+[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.3.1...v0.3.2)
