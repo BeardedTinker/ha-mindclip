@@ -99,8 +99,14 @@ class MindClipCalendarSync:
         for item in tuple(self._coordinator.data.pending_todos):
             if item.reminder_time is None:
                 continue
-            start = datetime.fromtimestamp(item.reminder_time / 1000, UTC)
-            end = start + duration
+            try:
+                start = datetime.fromtimestamp(item.reminder_time / 1000, UTC)
+                end = start + duration
+            except (OverflowError, OSError, ValueError):
+                _LOGGER.warning(
+                    "Unable to synchronize a MindClip To-Do with an invalid reminder timestamp"
+                )
+                continue
             try:
                 if not await self._async_event_exists(
                     calendar_entity, item, start, end

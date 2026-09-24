@@ -28,10 +28,10 @@ CALENDAR_ENTITY = "calendar.mindclip"
 TODO_UID = "a" * 64
 
 
-def _coordinator(item: PendingTodo) -> MagicMock:
-    """Return a coordinator with one pending item."""
+def _coordinator(*items: PendingTodo) -> MagicMock:
+    """Return a coordinator with pending items."""
     coordinator = MagicMock()
-    coordinator.data = SimpleNamespace(pending_todos=(item,))
+    coordinator.data = SimpleNamespace(pending_todos=items)
     coordinator.async_acknowledge_todo = AsyncMock()
     return coordinator
 
@@ -125,3 +125,22 @@ async def test_sync_failure_leaves_item_pending(hass) -> None:
         await sync._async_sync()
 
     coordinator.async_acknowledge_todo.assert_not_awaited()
+
+
+async def test_sync_skips_invalid_timestamp_and_continues(hass) -> None:
+    """An invalid reminder stays pending without blocking later valid items."""
+    invalid_uid = "b" * 64
+    coordinator = _coordinator(
+        PendingTodo(invalid_uid, "Invalid reminder", 1000, 10**30),
+        PendingTodo(TODO_UID, "Call office", 1000, 2000),
+    )
+    service_call = AsyncMock(side_effect=[{CALENDAR_ENTITY: {"events": []}}, None])
+    sync = MindClipCalendarSync(
+        hass, {CONF_CALENDAR_ENTITY: CALENDAR_ENTITY}, coordinator
+    )
+
+    with patch.object(type(hass.services), "async_call", service_call):
+        await sync._async_sync()
+
+    assert service_call.await_count == 2
+    coordinator.async_acknowledge_todo.assert_awaited_once_with(TODO_UID)
