@@ -102,7 +102,7 @@ class MindClipCalendarSync:
             try:
                 start = datetime.fromtimestamp(item.reminder_time / 1000, UTC)
                 end = start + duration
-            except (OverflowError, OSError, ValueError):
+            except OverflowError, OSError, ValueError:
                 _LOGGER.warning(
                     "Unable to synchronize a MindClip To-Do with an invalid reminder timestamp"
                 )
