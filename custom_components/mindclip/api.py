@@ -25,6 +25,7 @@ from .const import (
 )
 
 _SUCCESS_STATUS = 100
+_UNTITLED_RECORDING = "Untitled recording"
 _AUTH_STATUS_CODES = {401}
 _AUTH_MESSAGE_PARTS = (
     "authentication failed",
@@ -357,9 +358,12 @@ def _parse_recording(item: Mapping[str, Any]) -> Recording:
     recording_id = _require_string(item.get("id"), "recording ID")
     if len(recording_id) > MAX_STATE_LENGTH:
         raise MindClipSchemaError("SwitchBot returned an invalid recording ID")
-    title = _require_string(item.get("displayName"), "recording title")[
-        :MAX_STATE_LENGTH
-    ]
+    raw_title = item.get("displayName")
+    title = (
+        raw_title.strip()[:MAX_STATE_LENGTH]
+        if isinstance(raw_title, str) and raw_title.strip()
+        else _UNTITLED_RECORDING
+    )
     created_time = _require_non_negative_integer(
         item.get("createdTime"), "recording creation time"
     )

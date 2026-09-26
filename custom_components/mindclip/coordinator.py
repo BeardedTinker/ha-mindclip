@@ -140,8 +140,12 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
                     pass
         except MindClipAuthError as err:
             raise ConfigEntryAuthFailed("SwitchBot authentication failed") from err
-        except MindClipApiError:
-            pass
+        except MindClipApiError as err:
+            _LOGGER.warning(
+                "MindClip recordings endpoint degraded: %s: %s",
+                type(err).__name__,
+                err,
+            )
 
         return MindClipData(
             open_todo_count=todos.count,

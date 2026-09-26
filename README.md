@@ -2,7 +2,7 @@
 
 MindClip is an unofficial alpha-quality Home Assistant custom integration for ingesting selected data from a SwitchBot AI MindClip through SwitchBot OpenAPI v1.1.
 
-Version 0.3.2 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
+Version 0.3.3 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
 
 ## Features
 

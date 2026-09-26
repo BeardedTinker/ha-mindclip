@@ -279,3 +279,33 @@ async def test_recordings_track_latest_and_latest_transcribed() -> None:
     assert recordings.latest.recording_id == "recording-new"
     assert recordings.latest_transcribed is not None
     assert recordings.latest_transcribed.recording_id == "recording-ready"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("display_name", [None, "", "   "])
+async def test_recordings_accept_missing_or_empty_title(display_name: object) -> None:
+    """A recording without a usable title does not hide the full collection."""
+    session = FakeSession(
+        _success(
+            {
+                "total": 1,
+                "pages": 1,
+                "list": [
+                    {
+                        "id": "recording-untitled",
+                        "displayName": display_name,
+                        "createdTime": 2000,
+                        "transcribeStatus": 2,
+                    }
+                ],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    recordings = await client.async_get_recordings(DEVICE_ID)
+
+    assert recordings.total == 1
+    assert recordings.latest is not None
+    assert recordings.latest.title == "Untitled recording"
+    assert recordings.latest_transcribed == recordings.latest
