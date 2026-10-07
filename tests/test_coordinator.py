@@ -23,6 +23,7 @@ from custom_components.mindclip.const import (
     DOMAIN,
 )
 from custom_components.mindclip.coordinator import MindClipCoordinator
+from custom_components.mindclip.todo_store import PendingTodo
 
 DEVICE_ID = "MINDCLIP-TEST-001"
 
@@ -173,7 +174,9 @@ async def test_refresh_identifies_only_newly_discovered_todos(hass) -> None:
     changed = await coordinator._async_update_data()
 
     assert baseline.new_todos == ()
-    assert discovered.new_todos == (coordinator.todo_store.pending[0],)
+    assert discovered.new_todos == (
+        PendingTodo(new.uid, new.title, new.created_time, new.reminder_time),
+    )
     assert discovered.new_todos[0].uid == new.uid
     assert unchanged.new_todos == ()
     assert changed.new_todos == ()
