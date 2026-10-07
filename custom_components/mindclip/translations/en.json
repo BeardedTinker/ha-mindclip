@@ -115,6 +115,11 @@
       "pending_todos": {
         "name": "Pending To-Dos"
       }
+    },
+    "event": {
+      "new_todo": {
+        "name": "New To-Do"
+      }
     }
   }
 }

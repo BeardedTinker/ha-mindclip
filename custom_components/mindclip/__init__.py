@@ -12,7 +12,7 @@ from .calendar_sync import MindClipCalendarSync
 from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID
 from .coordinator import MindClipCoordinator
 
-PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR, Platform.TODO)
+PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR, Platform.TODO, Platform.EVENT)
 
 
 @dataclass(slots=True)

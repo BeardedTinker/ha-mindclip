@@ -11,6 +11,7 @@ from custom_components.mindclip.api import (
     MindClipAuthError,
     MindClipCommunicationError,
     MindClipSchemaError,
+    MindClipTodo,
     OpenTodoCount,
     Recording,
     RecordingCollection,
@@ -139,3 +140,41 @@ async def test_summary_uses_latest_transcribed_recording(hass) -> None:
 
     assert data.latest_recording_title == "New recording"
     api.async_get_summary.assert_awaited_once_with("recording-ready")
+
+
+async def test_refresh_identifies_only_newly_discovered_todos(hass) -> None:
+    """The initial baseline and updates do not produce duplicate discoveries."""
+    existing = MindClipTodo("a" * 64, "Existing", 1000, None)
+    new = MindClipTodo("b" * 64, "Call office", 2000, 3000)
+    updated = MindClipTodo("b" * 64, "Call office today", 2000, 4000)
+    api = MagicMock()
+    api.async_get_open_todo_count = AsyncMock(
+        side_effect=(
+            OpenTodoCount(count=1, truncated=False, items=(existing,)),
+            OpenTodoCount(count=2, truncated=False, items=(existing, new)),
+            OpenTodoCount(count=2, truncated=False, items=(existing, new)),
+            OpenTodoCount(count=2, truncated=False, items=(existing, updated)),
+        )
+    )
+    api.async_get_device_status = AsyncMock(return_value=DeviceStatus(charging=False))
+    api.async_get_recordings = AsyncMock(
+        return_value=RecordingCollection(
+            total=0,
+            latest=None,
+            latest_transcribed=None,
+            truncated=False,
+        )
+    )
+    coordinator = MindClipCoordinator(hass, _entry(), api, DEVICE_ID)
+
+    baseline = await coordinator._async_update_data()
+    discovered = await coordinator._async_update_data()
+    unchanged = await coordinator._async_update_data()
+    changed = await coordinator._async_update_data()
+
+    assert baseline.new_todos == ()
+    assert discovered.new_todos == (coordinator.todo_store.pending[0],)
+    assert discovered.new_todos[0].uid == new.uid
+    assert unchanged.new_todos == ()
+    assert changed.new_todos == ()
+    assert changed.pending_todos[0].title == "Call office today"
