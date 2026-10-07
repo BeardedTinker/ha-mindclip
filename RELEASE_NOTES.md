@@ -1,10 +1,11 @@
 ## What's changed
 
-- Recordings with a missing, empty, or whitespace-only display name now use `Untitled recording`.
-- One malformed title no longer makes the recording count, latest recording and latest summary unavailable.
-- Sanitized recording endpoint failures are logged without response payloads, identifiers or credentials.
-- Added regression coverage for all observed invalid-title variants.
+- Added a Home Assistant event entity that emits `created` for each newly discovered MindClip To-Do.
+- Event attributes contain the bounded title, hashed To-Do ID, creation time and optional reminder time.
+- The initial baseline, already-seen items and later edits do not emit duplicate creation events.
+- The integration does not execute services or interpret To-Do titles as commands; automations remain explicitly under the user's control.
+- Events follow the existing 30-minute polling interval and are not intended for time-critical timers.
 
 Install the update and restart Home Assistant to load the new integration code.
 
-[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.3.2...v0.3.3)
+[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.3.3...v0.4.0)
