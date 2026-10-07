@@ -39,6 +39,7 @@ class MindClipData:
     recordings_healthy: bool
     summary_healthy: bool
     updated_at: datetime
+    new_todos: tuple[PendingTodo, ...] = ()
 
     @property
     def degraded(self) -> bool:
@@ -85,7 +86,9 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
         """Acknowledge one locally pending To-Do."""
         pending = await self.todo_store.async_acknowledge(uid)
         if self.data is not None:
-            self.async_set_updated_data(replace(self.data, pending_todos=pending))
+            self.async_set_updated_data(
+                replace(self.data, pending_todos=pending, new_todos=())
+            )
 
     async def _async_update_data(self) -> MindClipData:
         """Fetch primary To-Dos and independently degradable optional data."""
@@ -96,8 +99,12 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
         except MindClipApiError as err:
             raise UpdateFailed("Unable to update MindClip To-Do data") from err
 
+        known_pending_uids = {item.uid for item in self.todo_store.pending}
         pending_todos = await self.todo_store.async_process(
             todos.items, truncated=todos.truncated
+        )
+        new_todos = tuple(
+            item for item in pending_todos if item.uid not in known_pending_uids
         )
 
         charging: bool | None = None
@@ -160,4 +167,5 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
             recordings_healthy=recordings_healthy,
             summary_healthy=summary_healthy,
             updated_at=datetime.now(UTC),
+            new_todos=new_todos,
         )

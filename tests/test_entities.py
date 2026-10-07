@@ -17,6 +17,10 @@ from custom_components.mindclip.const import (
     DOMAIN,
 )
 from custom_components.mindclip.coordinator import MindClipCoordinator, MindClipData
+from custom_components.mindclip.event import (
+    EVENT_TYPE_CREATED,
+    MindClipTodoEventEntity,
+)
 from custom_components.mindclip.sensor import (
     SENSOR_DESCRIPTIONS,
     MindClipLastSuccessfulPollSensor,
@@ -133,3 +137,29 @@ def test_truncated_todo_count_is_unavailable(hass) -> None:
     )
 
     assert MindClipSensor(entry, description).available is False
+
+
+def test_todo_event_emits_each_discovery_once(hass) -> None:
+    """The event entity emits bounded attributes without duplicate events."""
+    entry = _entry_with_data(hass)
+    item = PendingTodo("b" * 64, "Water the roses", 1000, 2000)
+    entry.runtime_data.coordinator.async_set_updated_data(
+        replace(entry.runtime_data.coordinator.data, new_todos=(item,))
+    )
+    entity = MindClipTodoEventEntity(entry)
+    entity._trigger_event = MagicMock()
+    entity.async_write_ha_state = MagicMock()
+
+    entity._emit_new_todos()
+    entity._emit_new_todos()
+
+    entity._trigger_event.assert_called_once_with(
+        EVENT_TYPE_CREATED,
+        {
+            "uid": "b" * 64,
+            "title": "Water the roses",
+            "created_at": "1970-01-01T00:00:01+00:00",
+            "reminder_at": "1970-01-01T00:00:02+00:00",
+        },
+    )
+    entity.async_write_ha_state.assert_called_once_with()

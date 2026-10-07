@@ -72,8 +72,12 @@ async def test_setup_and_unload_entry(hass) -> None:
     charging_entity_id = registry.async_get_entity_id(
         "binary_sensor", DOMAIN, f"{DEVICE_ID}_charging"
     )
+    event_entity_id = registry.async_get_entity_id(
+        "event", DOMAIN, f"{DEVICE_ID}_new_todo"
+    )
     assert todo_entity_id is not None
     assert charging_entity_id is not None
+    assert event_entity_id is not None
     todo_state = hass.states.get(todo_entity_id)
     charging_state = hass.states.get(charging_entity_id)
     assert todo_state is not None

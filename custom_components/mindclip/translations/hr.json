@@ -115,6 +115,11 @@
       "pending_todos": {
         "name": "Zadaci na čekanju"
       }
+    },
+    "event": {
+      "new_todo": {
+        "name": "Novi zadatak"
+      }
     }
   }
 }
