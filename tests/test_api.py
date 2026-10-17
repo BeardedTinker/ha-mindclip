@@ -3,12 +3,14 @@
 from collections.abc import Mapping
 from typing import Any
 
+import aiohttp
 import pytest
 
 from custom_components.mindclip import api as api_module
 from custom_components.mindclip.api import (
     MindClipApi,
     MindClipAuthError,
+    MindClipCommunicationError,
     MindClipDevice,
     MindClipResponseError,
     MindClipSchemaError,
@@ -58,9 +60,78 @@ class FakeSession:
         return self.responses.pop(0)
 
 
+class InvalidJsonResponse(FakeResponse):
+    """Response that cannot be decoded as JSON."""
+
+    async def json(self, *, content_type: None = None) -> object:
+        """Raise the same error as an invalid JSON response."""
+        raise ValueError
+
+
+class SlowResponse(FakeResponse):
+    """Response that exceeds the configured request timeout."""
+
+    async def __aenter__(self) -> SlowResponse:
+        """Wait long enough for the request timeout to expire."""
+        await api_module.asyncio.sleep(0.02)
+        return self
+
+
+class FailingSession:
+    """Session that fails before receiving a response."""
+
+    def get(
+        self,
+        url: str,
+        *,
+        headers: Mapping[str, str],
+        params: Mapping[str, str | int] | None,
+    ) -> FakeResponse:
+        """Raise a representative aiohttp connection error."""
+        raise aiohttp.ClientConnectionError
+
+
 def _success(body: object) -> FakeResponse:
     """Return a successful SwitchBot response."""
     return FakeResponse({"statusCode": 100, "message": "success", "body": body})
+
+
+@pytest.mark.asyncio
+async def test_request_timeout_raises_communication_error() -> None:
+    """A request timeout is exposed as a stable API communication error."""
+    session = FakeSession(SlowResponse({}))
+    client = MindClipApi(
+        session,  # type: ignore[arg-type]
+        "token",
+        "secret",
+        request_timeout=0.001,
+    )
+
+    with pytest.raises(MindClipCommunicationError, match="request timed out"):
+        await client.async_get_devices()
+
+
+@pytest.mark.asyncio
+async def test_client_error_raises_communication_error() -> None:
+    """An aiohttp failure is exposed as a stable API communication error."""
+    client = MindClipApi(
+        FailingSession(),  # type: ignore[arg-type]
+        "token",
+        "secret",
+    )
+
+    with pytest.raises(MindClipCommunicationError, match="communicate"):
+        await client.async_get_devices()
+
+
+@pytest.mark.asyncio
+async def test_invalid_json_raises_schema_error() -> None:
+    """An undecodable response is exposed as a schema error."""
+    session = FakeSession(InvalidJsonResponse({}))
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    with pytest.raises(MindClipSchemaError, match="invalid JSON"):
+        await client.async_get_devices()
 
 
 @pytest.mark.asyncio

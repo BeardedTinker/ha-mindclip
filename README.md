@@ -71,9 +71,15 @@ Diagnostics contain only safe counts, booleans, endpoint health, pagination trun
 
 Any change to custom integration code requires a full Home Assistant restart.
 
+## Troubleshooting
+
+- For temporary network failures or request timeouts, leave the integration configured. Home Assistant marks the refresh unsuccessful and tries again at the next polling interval.
+- If Home Assistant requests reauthentication, verify the credentials and confirm that the SwitchBot daily API limit has not been reached. SwitchBot can report both conditions as `Unauthorized`.
+- Use the integration diagnostics to check endpoint health and the last successful update without exposing credentials or user content.
+
 ## Development
 
-The pinned Home Assistant 2026.9.1 test environment requires Python 3.14.2 or newer. Install `requirements_test.txt`, then run `ruff format --check .`, `ruff check .`, and `pytest`. The GitHub Actions test workflow uses Python 3.14 for these checks; Python 3.13 cannot install this test environment.
+The pinned Home Assistant 2026.10.0 test environment requires Python 3.14.2 or newer. Install `requirements_test.txt`, then run `ruff format --check .`, `ruff check .`, and `pytest`. The GitHub Actions test workflow uses Python 3.14 for these checks; Python 3.13 cannot install this test environment.
 
 This project is not affiliated with, endorsed by, or supported by SwitchBot.
 
