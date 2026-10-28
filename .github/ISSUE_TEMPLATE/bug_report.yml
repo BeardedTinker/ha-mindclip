@@ -1,0 +1,65 @@
+name: Bug report
+description: Report a reproducible problem with the MindClip integration
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Remove credentials, device identifiers,
+        recording titles, summaries, and other personal content from all output.
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I am using the latest released version of the integration.
+          required: true
+        - label: I searched existing issues for the same problem.
+          required: true
+        - label: I removed credentials and personal content from logs and diagnostics.
+          required: true
+
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      placeholder: 0.4.0
+    validations:
+      required: true
+
+  - type: input
+    id: home-assistant-version
+    attributes:
+      label: Home Assistant version
+      placeholder: 2026.10.4
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized logs or diagnostics
+      description: Do not include API tokens, secrets, IDs, titles, summaries, or raw API responses.
+      render: text
