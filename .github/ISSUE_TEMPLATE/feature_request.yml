@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a focused improvement to the MindClip integration
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues for the same request.
+          required: true
+        - label: This request does not require exposing credentials or full private content.
+          required: true
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What problem would this feature solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful behavior and how it should appear in Home Assistant.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any existing Home Assistant feature or workaround you considered.
