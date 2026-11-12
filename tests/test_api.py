@@ -12,6 +12,7 @@ from custom_components.mindclip.api import (
     MindClipAuthError,
     MindClipCommunicationError,
     MindClipDevice,
+    MindClipRateLimitError,
     MindClipResponseError,
     MindClipSchemaError,
 )
@@ -23,10 +24,16 @@ DEVICE_ID = "MINDCLIP-TEST-001"
 class FakeResponse:
     """Small aiohttp response context-manager fake."""
 
-    def __init__(self, payload: object, status: int = 200) -> None:
+    def __init__(
+        self,
+        payload: object,
+        status: int = 200,
+        headers: Mapping[str, str] | None = None,
+    ) -> None:
         """Initialize a fake response."""
         self.payload = payload
         self.status = status
+        self.headers = headers or {}
 
     async def __aenter__(self) -> FakeResponse:
         """Enter the response context."""
@@ -172,7 +179,11 @@ async def test_deterministic_request_signing() -> None:
             {
                 "deviceId": DEVICE_ID,
                 "deviceType": "AI MindClip",
+                "battery": 87,
                 "chargingStatus": 1,
+                "recordingStatus": 0,
+                "uploadStatus": 1,
+                "hasUntransferredFiles": True,
             }
         )
     )
@@ -187,6 +198,10 @@ async def test_deterministic_request_signing() -> None:
     status = await client.async_get_device_status(DEVICE_ID)
 
     assert status.charging is True
+    assert status.battery == 87
+    assert status.recording is False
+    assert status.uploading is True
+    assert status.has_untransferred_files is True
     assert session.calls == [
         {
             "url": f"{API_BASE_URL}/devices/{DEVICE_ID}/status",
@@ -200,6 +215,20 @@ async def test_deterministic_request_signing() -> None:
             "params": None,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_exposes_bounded_retry_after() -> None:
+    """A 429 response exposes a safe bounded retry delay."""
+    session = FakeSession(
+        FakeResponse({}, status=429, headers={"Retry-After": "999999"})
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    with pytest.raises(MindClipRateLimitError) as error:
+        await client.async_get_devices()
+
+    assert error.value.retry_after == 86400
 
 
 @pytest.mark.asyncio

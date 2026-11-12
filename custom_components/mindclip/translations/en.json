@@ -90,6 +90,9 @@
   },
   "entity": {
     "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
       "open_todo_count": {
         "name": "Open To-Do count"
       },
@@ -98,6 +101,20 @@
       },
       "latest_recording_title": {
         "name": "Latest recording title"
+      },
+      "latest_recording_created_at": {
+        "name": "Latest recording time"
+      },
+      "latest_transcription_status": {
+        "name": "Latest transcription status",
+        "state": {
+          "not_transcribed": "Not transcribed",
+          "in_progress": "In progress",
+          "successful": "Successful",
+          "failed": "Failed",
+          "timed_out": "Timed out",
+          "speech_to_text_failed": "Speech-to-text failed"
+        }
       },
       "latest_summary": {
         "name": "Latest summary"
@@ -109,6 +126,15 @@
     "binary_sensor": {
       "charging": {
         "name": "Charging"
+      },
+      "recording": {
+        "name": "Recording"
+      },
+      "uploading": {
+        "name": "Uploading"
+      },
+      "untransferred_files": {
+        "name": "Untransferred files"
       }
     },
     "todo": {

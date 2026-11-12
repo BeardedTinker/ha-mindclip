@@ -44,7 +44,15 @@ async def test_setup_and_unload_entry(hass) -> None:
         ),
         patch(
             "custom_components.mindclip.api.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=True)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=True,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
         patch(
             "custom_components.mindclip.api.MindClipApi.async_get_recordings",
@@ -72,18 +80,32 @@ async def test_setup_and_unload_entry(hass) -> None:
     charging_entity_id = registry.async_get_entity_id(
         "binary_sensor", DOMAIN, f"{DEVICE_ID}_charging"
     )
+    battery_entity_id = registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{DEVICE_ID}_battery"
+    )
+    recording_entity_id = registry.async_get_entity_id(
+        "binary_sensor", DOMAIN, f"{DEVICE_ID}_recording"
+    )
     event_entity_id = registry.async_get_entity_id(
         "event", DOMAIN, f"{DEVICE_ID}_new_todo"
     )
     assert todo_entity_id is not None
     assert charging_entity_id is not None
+    assert battery_entity_id is not None
+    assert recording_entity_id is not None
     assert event_entity_id is not None
     todo_state = hass.states.get(todo_entity_id)
     charging_state = hass.states.get(charging_entity_id)
+    battery_state = hass.states.get(battery_entity_id)
+    recording_state = hass.states.get(recording_entity_id)
     assert todo_state is not None
     assert charging_state is not None
+    assert battery_state is not None
+    assert recording_state is not None
     assert todo_state.state == "3"
     assert charging_state.state == "on"
+    assert battery_state.state == "75"
+    assert recording_state.state == "off"
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -15,12 +15,23 @@ from .api import (
     MindClipApi,
     MindClipApiError,
     MindClipAuthError,
+    MindClipRateLimitError,
+    MindClipSchemaError,
     RecordingSummary,
 )
 from .const import UPDATE_INTERVAL
 from .todo_store import MindClipTodoStore, PendingTodo
 
 _LOGGER = logging.getLogger(__name__)
+
+_TRANSCRIPTION_STATES = {
+    0: "not_transcribed",
+    1: "in_progress",
+    2: "successful",
+    3: "failed",
+    4: "timed_out",
+    5: "speech_to_text_failed",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,8 +42,14 @@ class MindClipData:
     pending_todos: tuple[PendingTodo, ...]
     recording_count: int | None
     latest_recording_title: str | None
+    latest_recording_created_at: datetime | None
+    latest_transcription_status: str | None
     latest_summary: RecordingSummary | None
+    battery: int | None
     charging: bool | None
+    recording: bool | None
+    uploading: bool | None
+    has_untransferred_files: bool | None
     todos_truncated: bool
     recordings_truncated: bool
     device_status_healthy: bool
@@ -77,6 +94,7 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
         self.api = api
         self.device_id = device_id
         self.todo_store = todo_store or MindClipTodoStore(hass, config_entry.entry_id)
+        self._cached_summary: RecordingSummary | None = None
 
     async def async_initialize(self) -> None:
         """Load persistent state before the first refresh."""
@@ -92,10 +110,17 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
 
     async def _async_update_data(self) -> MindClipData:
         """Fetch primary To-Dos and independently degradable optional data."""
+        next_update_interval = UPDATE_INTERVAL
         try:
             todos = await self.api.async_get_open_todo_count(self.device_id)
         except MindClipAuthError as err:
             raise ConfigEntryAuthFailed("SwitchBot authentication failed") from err
+        except MindClipRateLimitError as err:
+            self._defer_after_rate_limit(err)
+            raise UpdateFailed(
+                "SwitchBot rate-limited the MindClip update",
+                retry_after=err.retry_after,
+            ) from err
         except MindClipApiError as err:
             raise UpdateFailed("Unable to update MindClip To-Do data") from err
 
@@ -107,19 +132,31 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
             item for item in pending_todos if item.uid not in known_pending_uids
         )
 
+        battery: int | None = None
         charging: bool | None = None
+        recording: bool | None = None
+        uploading: bool | None = None
+        has_untransferred_files: bool | None = None
         device_status_healthy = False
         try:
             status = await self.api.async_get_device_status(self.device_id)
+            battery = status.battery
             charging = status.charging
+            recording = status.recording
+            uploading = status.uploading
+            has_untransferred_files = status.has_untransferred_files
             device_status_healthy = True
         except MindClipAuthError as err:
             raise ConfigEntryAuthFailed("SwitchBot authentication failed") from err
+        except MindClipRateLimitError as err:
+            next_update_interval = _rate_limit_interval(err)
         except MindClipApiError:
             pass
 
         recording_count: int | None = None
         latest_recording_title: str | None = None
+        latest_recording_created_at: datetime | None = None
+        latest_transcription_status: str | None = None
         latest_summary: RecordingSummary | None = None
         recordings_truncated = False
         recordings_healthy = False
@@ -131,22 +168,43 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
             recordings_healthy = True
             if recordings.latest is not None:
                 latest_recording_title = recordings.latest.title
+                latest_recording_created_at = _timestamp_to_datetime(
+                    recordings.latest.created_time
+                )
+                latest_transcription_status = _TRANSCRIPTION_STATES[
+                    recordings.latest.transcription_status
+                ]
             if recordings.latest_transcribed is None:
+                self._cached_summary = None
+                summary_healthy = True
+            elif (
+                self._cached_summary is not None
+                and self._cached_summary.recording_id
+                == recordings.latest_transcribed.recording_id
+            ):
+                latest_summary = self._cached_summary
                 summary_healthy = True
             else:
                 try:
                     latest_summary = await self.api.async_get_summary(
                         recordings.latest_transcribed.recording_id
                     )
+                    self._cached_summary = latest_summary
                     summary_healthy = True
                 except MindClipAuthError as err:
                     raise ConfigEntryAuthFailed(
                         "SwitchBot authentication failed"
                     ) from err
+                except MindClipRateLimitError as err:
+                    next_update_interval = max(
+                        next_update_interval, _rate_limit_interval(err)
+                    )
                 except MindClipApiError:
                     pass
         except MindClipAuthError as err:
             raise ConfigEntryAuthFailed("SwitchBot authentication failed") from err
+        except MindClipRateLimitError as err:
+            next_update_interval = max(next_update_interval, _rate_limit_interval(err))
         except MindClipApiError as err:
             _LOGGER.warning(
                 "MindClip recordings endpoint degraded: %s: %s",
@@ -154,13 +212,20 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
                 err,
             )
 
+        self.update_interval = next_update_interval
         return MindClipData(
             open_todo_count=todos.count,
             pending_todos=pending_todos,
             recording_count=recording_count,
             latest_recording_title=latest_recording_title,
+            latest_recording_created_at=latest_recording_created_at,
+            latest_transcription_status=latest_transcription_status,
             latest_summary=latest_summary,
+            battery=battery,
             charging=charging,
+            recording=recording,
+            uploading=uploading,
+            has_untransferred_files=has_untransferred_files,
             todos_truncated=todos.truncated,
             recordings_truncated=recordings_truncated,
             device_status_healthy=device_status_healthy,
@@ -169,3 +234,24 @@ class MindClipCoordinator(DataUpdateCoordinator[MindClipData]):
             updated_at=datetime.now(UTC),
             new_todos=new_todos,
         )
+
+    def _defer_after_rate_limit(self, error: MindClipRateLimitError) -> None:
+        """Delay the next coordinator refresh when SwitchBot requests it."""
+        self.update_interval = _rate_limit_interval(error)
+
+
+def _rate_limit_interval(error: MindClipRateLimitError) -> timedelta:
+    """Return a refresh interval that honors a bounded Retry-After value."""
+    if error.retry_after is None:
+        return UPDATE_INTERVAL
+    return max(UPDATE_INTERVAL, timedelta(seconds=error.retry_after))
+
+
+def _timestamp_to_datetime(timestamp: int) -> datetime:
+    """Convert a SwitchBot millisecond timestamp to a UTC datetime."""
+    try:
+        return datetime.fromtimestamp(timestamp / 1000, UTC)
+    except (OverflowError, OSError, ValueError) as err:
+        raise MindClipSchemaError(
+            "SwitchBot returned an invalid recording creation time"
+        ) from err

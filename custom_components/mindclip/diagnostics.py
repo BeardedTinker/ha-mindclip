@@ -31,8 +31,16 @@ async def async_get_config_entry_diagnostics(
             "pending_todo_count": len(data.pending_todos),
             "recording_count": data.recording_count,
             "latest_recording_present": data.latest_recording_title is not None,
+            "latest_recording_time_present": (
+                data.latest_recording_created_at is not None
+            ),
+            "latest_transcription_status": data.latest_transcription_status,
             "summary_present": data.latest_summary is not None,
+            "battery": data.battery,
             "charging": data.charging,
+            "recording": data.recording,
+            "uploading": data.uploading,
+            "has_untransferred_files": data.has_untransferred_files,
             "todos_truncated": data.todos_truncated,
             "recordings_truncated": data.recordings_truncated,
             "updated_at": data.updated_at.isoformat(),

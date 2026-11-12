@@ -27,6 +27,7 @@ from .const import (
 _SUCCESS_STATUS = 100
 _UNTITLED_RECORDING = "Untitled recording"
 _AUTH_STATUS_CODES = {401}
+_MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60
 _AUTH_MESSAGE_PARTS = (
     "authentication failed",
     "invalid signature",
@@ -45,6 +46,15 @@ class MindClipAuthError(MindClipApiError):
 
 class MindClipCommunicationError(MindClipApiError):
     """Raised when the SwitchBot service cannot be reached."""
+
+
+class MindClipRateLimitError(MindClipCommunicationError):
+    """Raised when SwitchBot rate-limits a request."""
+
+    def __init__(self, retry_after: int | None) -> None:
+        """Initialize a bounded rate-limit error."""
+        self.retry_after = retry_after
+        super().__init__("SwitchBot API rate limit exceeded")
 
 
 class MindClipResponseError(MindClipApiError):
@@ -70,9 +80,13 @@ class MindClipDevice:
 
 @dataclass(frozen=True, slots=True)
 class DeviceStatus:
-    """Privacy-minimized MindClip device status."""
+    """MindClip device status."""
 
+    battery: int
     charging: bool
+    recording: bool
+    uploading: bool
+    has_untransferred_files: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -172,6 +186,10 @@ class MindClipApi:
                 ) as response:
                     if response.status in _AUTH_STATUS_CODES:
                         raise MindClipAuthError("SwitchBot authentication failed")
+                    if response.status == 429:
+                        raise MindClipRateLimitError(
+                            _parse_retry_after(response.headers.get("Retry-After"))
+                        )
                     if not 200 <= response.status < 300:
                         raise MindClipCommunicationError(
                             f"SwitchBot HTTP request failed with status {response.status}"
@@ -236,10 +254,24 @@ class MindClipApi:
             raise MindClipSchemaError("SwitchBot returned a different device")
         if body.get("deviceType") != "AI MindClip":
             raise MindClipSchemaError("Configured device is not an AI MindClip")
-        charging_status = _require_integer(body.get("chargingStatus"), "charge state")
-        if charging_status not in (0, 1):
-            raise MindClipSchemaError("SwitchBot returned an invalid charge state")
-        return DeviceStatus(charging=bool(charging_status))
+        battery = _require_integer(body.get("battery"), "battery level")
+        if not 0 <= battery <= 100:
+            raise MindClipSchemaError("SwitchBot returned an invalid battery level")
+        charging = _parse_binary_status(body.get("chargingStatus"), "charge state")
+        recording = _parse_binary_status(body.get("recordingStatus"), "recording state")
+        uploading = _parse_binary_status(body.get("uploadStatus"), "upload state")
+        has_untransferred_files = body.get("hasUntransferredFiles")
+        if not isinstance(has_untransferred_files, bool):
+            raise MindClipSchemaError(
+                "SwitchBot returned an invalid untransferred-files state"
+            )
+        return DeviceStatus(
+            battery=battery,
+            charging=charging,
+            recording=recording,
+            uploading=uploading,
+            has_untransferred_files=has_untransferred_files,
+        )
 
     async def async_get_open_todo_count(self, device_id: str) -> OpenTodoCount:
         """Get bounded open To-Dos for this device."""
@@ -426,6 +458,24 @@ def _require_non_negative_integer(value: object, field: str) -> int:
     if result < 0:
         raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
     return result
+
+
+def _parse_binary_status(value: object, field: str) -> bool:
+    """Parse a documented zero-or-one status."""
+    result = _require_integer(value, field)
+    if result not in (0, 1):
+        raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
+    return bool(result)
+
+
+def _parse_retry_after(value: str | None) -> int | None:
+    """Parse a bounded Retry-After delta in seconds."""
+    if value is None or not value.isascii() or not value.isdigit():
+        return None
+    retry_after = int(value)
+    if retry_after > _MAX_RETRY_AFTER_SECONDS:
+        return _MAX_RETRY_AFTER_SECONDS
+    return retry_after
 
 
 def _parse_status_code(value: object) -> int:
