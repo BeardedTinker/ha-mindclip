@@ -88,6 +88,64 @@
       "calendar_not_writable": "Odaberite kalendar koji podržava stvaranje događaja."
     }
   },
+  "services": {
+    "get_recording": {
+      "name": "Dohvati detalje snimke",
+      "description": "Vraća metapodatke jedne MindClip snimke. Odgovor se ne sprema u entitet, ali se može pojaviti u tragovima automatizacije.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "Konfigurirani MindClip kojem snimka pripada."
+        },
+        "recording_id": {
+          "name": "ID snimke",
+          "description": "SwitchBot ID snimke koju treba dohvatiti."
+        }
+      }
+    },
+    "get_transcript": {
+      "name": "Dohvati transkript snimke",
+      "description": "Vraća puni privatni transkript i popis govornika za jednu snimku. Odgovor se ne sprema u entitet, ali se može pojaviti u tragovima automatizacije.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "Konfigurirani MindClip kojem snimka pripada."
+        },
+        "recording_id": {
+          "name": "ID snimke",
+          "description": "SwitchBot ID snimke koju treba dohvatiti."
+        }
+      }
+    },
+    "get_summary": {
+      "name": "Dohvati puni sažetak snimke",
+      "description": "Vraća puni privatni transkript, AI rezultate, zadatke i govornike za jednu snimku. Odgovor se ne sprema u entitet, ali se može pojaviti u tragovima automatizacije.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "Konfigurirani MindClip kojem snimka pripada."
+        },
+        "recording_id": {
+          "name": "ID snimke",
+          "description": "SwitchBot ID snimke koju treba dohvatiti."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "action_invalid_auth": {
+      "message": "SwitchBot je odbio spremljene MindClip vjerodajnice."
+    },
+    "action_rate_limited": {
+      "message": "SwitchBot je ograničio učestalost MindClip zahtjeva. Pokušajte ponovno kasnije."
+    },
+    "action_cannot_connect": {
+      "message": "Povezivanje sa SwitchBotom za ovaj MindClip zahtjev nije uspjelo."
+    },
+    "action_invalid_response": {
+      "message": "SwitchBot je vratio nevaljane ili nedostupne MindClip podatke."
+    }
+  },
   "entity": {
     "sensor": {
       "battery": {

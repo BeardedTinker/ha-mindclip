@@ -22,6 +22,12 @@ async def test_english_translations_load_without_strings_json(hass) -> None:
         "entity",
         {DOMAIN},
     )
+    service_translations = await translation.async_get_translations(
+        hass,
+        "en",
+        "services",
+        {DOMAIN},
+    )
 
     assert (
         translations["component.mindclip.config.step.user.data.api_token"]
@@ -35,10 +41,18 @@ async def test_english_translations_load_without_strings_json(hass) -> None:
         entity_translations["component.mindclip.entity.sensor.open_todo_count.name"]
         == "Open To-Do count"
     )
+    assert (
+        service_translations["component.mindclip.services.get_transcript.name"]
+        == "Get recording transcript"
+    )
     assert not Path("custom_components/mindclip/strings.json").exists()
     assert not any(
         "[%key:" in text
-        for text in (*translations.values(), *entity_translations.values())
+        for text in (
+            *translations.values(),
+            *entity_translations.values(),
+            *service_translations.values(),
+        )
     )
 
 

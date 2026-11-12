@@ -1,10 +1,11 @@
 ## What's changed
 
-- Added battery level, recording, uploading and untransferred-file entities from the existing device status response.
-- Added the latest recording timestamp and transcription status without additional API calls.
-- Cached the latest summary by recording ID so an unchanged recording does not consume another summary request every 30 minutes.
-- Added explicit HTTP rate-limit handling with a bounded `Retry-After` delay.
+- Added response-only `get_recording`, `get_transcript`, and `get_summary` actions.
+- Full private content is returned only to the explicit action caller and is not stored in entities, diagnostics, or Recorder.
+- Transcript strings are preserved exactly as returned by SwitchBot, including JSON-encoded strings.
+- Recording ownership, response fields, collection sizes, and text sizes are validated before data is returned.
+- Added English and Croatian action descriptions, icons, privacy guidance, and regression tests.
 
 Install the update and restart Home Assistant to load the new integration code.
 
-[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.4.0...v0.5.0)
+[Full changelog](https://github.com/BeardedTinker/ha-mindclip/compare/v0.5.0...v0.6.0)
