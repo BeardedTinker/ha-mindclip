@@ -1,8 +1,10 @@
 # MindClip for Home Assistant
 
+[![Open your Home Assistant instance and open MindClip in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=BeardedTinker&repository=ha-mindclip&category=integration)
+
 MindClip is an unofficial alpha-quality Home Assistant custom integration for ingesting selected data from a SwitchBot AI MindClip through SwitchBot OpenAPI v1.1.
 
-Version 0.4.0 is intended for early testing. It is not production-ready, is not part of the default HACS repository, and may need adjustment if SwitchBot changes the new MindClip endpoints.
+Version 0.4.0 is intended for early testing. It is not production-ready, is not listed in the default Home Assistant Marketplace catalog, and may need adjustment if SwitchBot changes the new MindClip endpoints.
 
 ## Features
 
@@ -24,11 +26,13 @@ The event entity exposes the new To-Do's hashed ID, title, creation time and opt
 
 ## Installation
 
-1. In HACS, open Integrations, select the menu, and choose **Custom repositories**.
-2. Add `https://github.com/BeardedTinker/ha-mindclip` with category **Integration**.
-3. Install **MindClip** through HACS.
+1. Select the Marketplace button above, or open **Settings > Marketplace**, select **Add from link**, and enter `https://github.com/BeardedTinker/ha-mindclip`.
+2. If Home Assistant asks for a content type, select **Integration**.
+3. Install **MindClip** through the Marketplace.
 4. Restart Home Assistant.
 5. Go to **Settings > Devices & services > Add integration** and search for **MindClip**.
+
+On Home Assistant 2026.10 and older, add the same repository through HACS as a custom repository with category **Integration**, install **MindClip** through HACS, restart Home Assistant, and add the integration from **Settings > Devices & services**.
 
 Manual installation is also possible by placing `custom_components/mindclip` in the Home Assistant configuration directory and restarting Home Assistant.
 
