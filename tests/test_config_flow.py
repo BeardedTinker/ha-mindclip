@@ -41,7 +41,15 @@ async def test_user_flow_creates_device_entry(hass) -> None:
     )
     assert result["type"] is FlowResultType.FORM
 
-    status_mock = AsyncMock(return_value=DeviceStatus(charging=False))
+    status_mock = AsyncMock(
+        return_value=DeviceStatus(
+            battery=75,
+            charging=False,
+            recording=False,
+            uploading=False,
+            has_untransferred_files=False,
+        )
+    )
     with (
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_devices",
@@ -106,7 +114,15 @@ async def test_user_flow_rejects_duplicate_device(hass) -> None:
         ),
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=False)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=False,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -133,7 +149,15 @@ async def test_user_flow_selects_from_multiple_devices(hass) -> None:
         ),
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=False)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=False,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -162,7 +186,15 @@ async def test_user_flow_falls_back_to_manual_device_id(hass) -> None:
         ),
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=False)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=False,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
     ):
         result = await hass.config_entries.flow.async_configure(
@@ -202,7 +234,15 @@ async def test_reauth_updates_only_existing_entry(hass) -> None:
     with (
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=False)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=False,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
         patch.object(hass.config_entries, "async_reload", AsyncMock(return_value=True)),
     ):
@@ -239,7 +279,15 @@ async def test_reconfigure_updates_existing_entry(hass) -> None:
     with (
         patch(
             "custom_components.mindclip.config_flow.MindClipApi.async_get_device_status",
-            AsyncMock(return_value=DeviceStatus(charging=True)),
+            AsyncMock(
+                return_value=DeviceStatus(
+                    battery=75,
+                    charging=True,
+                    recording=False,
+                    uploading=False,
+                    has_untransferred_files=False,
+                )
+            ),
         ),
         patch.object(hass.config_entries, "async_reload", AsyncMock(return_value=True)),
     ):

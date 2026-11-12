@@ -90,6 +90,9 @@
   },
   "entity": {
     "sensor": {
+      "battery": {
+        "name": "Baterija"
+      },
       "open_todo_count": {
         "name": "Broj otvorenih zadataka"
       },
@@ -98,6 +101,20 @@
       },
       "latest_recording_title": {
         "name": "Naslov najnovije snimke"
+      },
+      "latest_recording_created_at": {
+        "name": "Vrijeme najnovije snimke"
+      },
+      "latest_transcription_status": {
+        "name": "Status najnovije transkripcije",
+        "state": {
+          "not_transcribed": "Nije transkribirano",
+          "in_progress": "U tijeku",
+          "successful": "Uspješno",
+          "failed": "Neuspješno",
+          "timed_out": "Isteklo vrijeme",
+          "speech_to_text_failed": "Pretvaranje govora u tekst nije uspjelo"
+        }
       },
       "latest_summary": {
         "name": "Najnoviji sažetak"
@@ -109,6 +126,15 @@
     "binary_sensor": {
       "charging": {
         "name": "Punjenje"
+      },
+      "recording": {
+        "name": "Snimanje"
+      },
+      "uploading": {
+        "name": "Prijenos"
+      },
+      "untransferred_files": {
+        "name": "Neprenesene datoteke"
       }
     },
     "todo": {

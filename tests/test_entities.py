@@ -9,7 +9,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.mindclip import MindClipRuntimeData
 from custom_components.mindclip.api import RecordingSummary
-from custom_components.mindclip.binary_sensor import MindClipChargingSensor
+from custom_components.mindclip.binary_sensor import (
+    BINARY_SENSOR_DESCRIPTIONS,
+    MindClipBinarySensor,
+)
 from custom_components.mindclip.const import (
     CONF_API_SECRET,
     CONF_API_TOKEN,
@@ -53,8 +56,14 @@ def _entry_with_data(hass) -> MockConfigEntry:
             pending_todos=(PendingTodo("a" * 64, "Call the office", 1000, 2000),),
             recording_count=7,
             latest_recording_title="Synthetic meeting",
+            latest_recording_created_at=datetime(2026, 9, 10, tzinfo=UTC),
+            latest_transcription_status="successful",
             latest_summary=RecordingSummary("recording-one", "Short summary"),
+            battery=75,
             charging=True,
+            recording=False,
+            uploading=True,
+            has_untransferred_files=True,
             todos_truncated=False,
             recordings_truncated=False,
             device_status_healthy=True,
@@ -77,7 +86,12 @@ def test_sensor_values_and_device_registry_metadata(hass) -> None:
 
     assert sensors["open_todo_count"].native_value == 4
     assert sensors["recording_count"].native_value == 7
+    assert sensors["battery"].native_value == 75
     assert sensors["latest_recording_title"].native_value == "Synthetic meeting"
+    assert sensors["latest_recording_created_at"].native_value == datetime(
+        2026, 9, 10, tzinfo=UTC
+    )
+    assert sensors["latest_transcription_status"].native_value == "successful"
     assert sensors["open_todo_count"].device_info["identifiers"] == {
         (DOMAIN, DEVICE_ID)
     }
@@ -89,13 +103,28 @@ def test_summary_and_charging_entities_are_privacy_limited(hass) -> None:
     """Summary and charging entities expose only their approved fields."""
     entry = _entry_with_data(hass)
     summary = MindClipSummarySensor(entry)
-    charging = MindClipChargingSensor(entry)
+    charging = MindClipBinarySensor(entry, BINARY_SENSOR_DESCRIPTIONS[0])
 
     assert summary.native_value == "Short summary"
     assert summary.extra_state_attributes == {"recording_id": "recording-one"}
     assert charging.is_on is True
     assert summary.available is True
     assert charging.available is True
+
+
+def test_binary_status_entities_share_device_health(hass) -> None:
+    """All device status flags are exposed without extra API data."""
+    entry = _entry_with_data(hass)
+    sensors = {
+        description.key: MindClipBinarySensor(entry, description)
+        for description in BINARY_SENSOR_DESCRIPTIONS
+    }
+
+    assert sensors["charging"].is_on is True
+    assert sensors["recording"].is_on is False
+    assert sensors["uploading"].is_on is True
+    assert sensors["untransferred_files"].is_on is True
+    assert all(sensor.available for sensor in sensors.values())
 
 
 def test_last_successful_poll_remains_visible_after_failure(hass) -> None:

@@ -11,7 +11,9 @@ from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
+from homeassistant.const import PERCENTAGE
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -31,6 +33,15 @@ class MindClipSensorEntityDescription(SensorEntityDescription):
 
 SENSOR_DESCRIPTIONS = (
     MindClipSensorEntityDescription(
+        key="battery",
+        translation_key="battery",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: data.battery,
+        health_fn=lambda data: data.device_status_healthy,
+    ),
+    MindClipSensorEntityDescription(
         key="open_todo_count",
         translation_key="open_todo_count",
         icon="mdi:format-list-checks",
@@ -49,6 +60,30 @@ SENSOR_DESCRIPTIONS = (
         translation_key="latest_recording_title",
         icon="mdi:text-box-outline",
         value_fn=lambda data: data.latest_recording_title,
+        health_fn=lambda data: data.recordings_healthy,
+    ),
+    MindClipSensorEntityDescription(
+        key="latest_recording_created_at",
+        translation_key="latest_recording_created_at",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:clock-outline",
+        value_fn=lambda data: data.latest_recording_created_at,
+        health_fn=lambda data: data.recordings_healthy,
+    ),
+    MindClipSensorEntityDescription(
+        key="latest_transcription_status",
+        translation_key="latest_transcription_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=[
+            "not_transcribed",
+            "in_progress",
+            "successful",
+            "failed",
+            "timed_out",
+            "speech_to_text_failed",
+        ],
+        icon="mdi:text-box-check-outline",
+        value_fn=lambda data: data.latest_transcription_status,
         health_fn=lambda data: data.recordings_healthy,
     ),
 )

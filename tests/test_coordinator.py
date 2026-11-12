@@ -1,5 +1,6 @@
 """Tests for the MindClip coordinator."""
 
+from datetime import timedelta
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -10,11 +11,13 @@ from custom_components.mindclip.api import (
     DeviceStatus,
     MindClipAuthError,
     MindClipCommunicationError,
+    MindClipRateLimitError,
     MindClipSchemaError,
     MindClipTodo,
     OpenTodoCount,
     Recording,
     RecordingCollection,
+    RecordingSummary,
 )
 from custom_components.mindclip.const import (
     CONF_API_SECRET,
@@ -97,7 +100,15 @@ async def test_successful_refresh_collects_minimal_data(hass) -> None:
     api.async_get_open_todo_count = AsyncMock(
         return_value=OpenTodoCount(count=1, truncated=True)
     )
-    api.async_get_device_status = AsyncMock(return_value=DeviceStatus(charging=True))
+    api.async_get_device_status = AsyncMock(
+        return_value=DeviceStatus(
+            battery=75,
+            charging=True,
+            recording=False,
+            uploading=False,
+            has_untransferred_files=False,
+        )
+    )
     api.async_get_recordings = AsyncMock(
         return_value=RecordingCollection(
             total=0,
@@ -113,7 +124,11 @@ async def test_successful_refresh_collects_minimal_data(hass) -> None:
 
     assert data.open_todo_count == 1
     assert data.todos_truncated is True
+    assert data.battery == 75
     assert data.charging is True
+    assert data.recording is False
+    assert data.uploading is False
+    assert data.has_untransferred_files is False
     assert data.recording_count == 0
     assert data.summary_healthy is True
     api.async_get_summary.assert_not_awaited()
@@ -125,7 +140,15 @@ async def test_summary_uses_latest_transcribed_recording(hass) -> None:
     api.async_get_open_todo_count = AsyncMock(
         return_value=OpenTodoCount(count=0, truncated=False)
     )
-    api.async_get_device_status = AsyncMock(return_value=DeviceStatus(charging=False))
+    api.async_get_device_status = AsyncMock(
+        return_value=DeviceStatus(
+            battery=75,
+            charging=False,
+            recording=False,
+            uploading=False,
+            has_untransferred_files=False,
+        )
+    )
     api.async_get_recordings = AsyncMock(
         return_value=RecordingCollection(
             total=2,
@@ -134,13 +157,42 @@ async def test_summary_uses_latest_transcribed_recording(hass) -> None:
             truncated=False,
         )
     )
-    api.async_get_summary = AsyncMock()
+    api.async_get_summary = AsyncMock(
+        return_value=RecordingSummary("recording-ready", "Ready summary")
+    )
+    coordinator = MindClipCoordinator(hass, _entry(), api, DEVICE_ID)
+
+    data = await coordinator._async_update_data()
+    cached_data = await coordinator._async_update_data()
+
+    assert data.latest_recording_title == "New recording"
+    assert data.latest_recording_created_at is not None
+    assert data.latest_transcription_status == "in_progress"
+    assert cached_data.latest_summary == data.latest_summary
+    api.async_get_summary.assert_awaited_once_with("recording-ready")
+
+
+async def test_optional_rate_limit_defers_next_refresh(hass) -> None:
+    """A bounded Retry-After value delays the next coordinator refresh."""
+    api = MagicMock()
+    api.async_get_open_todo_count = AsyncMock(
+        return_value=OpenTodoCount(count=0, truncated=False)
+    )
+    api.async_get_device_status = AsyncMock(side_effect=MindClipRateLimitError(7200))
+    api.async_get_recordings = AsyncMock(
+        return_value=RecordingCollection(
+            total=0,
+            latest=None,
+            latest_transcribed=None,
+            truncated=False,
+        )
+    )
     coordinator = MindClipCoordinator(hass, _entry(), api, DEVICE_ID)
 
     data = await coordinator._async_update_data()
 
-    assert data.latest_recording_title == "New recording"
-    api.async_get_summary.assert_awaited_once_with("recording-ready")
+    assert data.device_status_healthy is False
+    assert coordinator.update_interval == timedelta(hours=2)
 
 
 async def test_refresh_identifies_only_newly_discovered_todos(hass) -> None:
@@ -157,7 +209,15 @@ async def test_refresh_identifies_only_newly_discovered_todos(hass) -> None:
             OpenTodoCount(count=2, truncated=False, items=(existing, updated)),
         )
     )
-    api.async_get_device_status = AsyncMock(return_value=DeviceStatus(charging=False))
+    api.async_get_device_status = AsyncMock(
+        return_value=DeviceStatus(
+            battery=75,
+            charging=False,
+            recording=False,
+            uploading=False,
+            has_untransferred_files=False,
+        )
+    )
     api.async_get_recordings = AsyncMock(
         return_value=RecordingCollection(
             total=0,
