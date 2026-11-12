@@ -8,16 +8,26 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.mindclip.api import (
     DeviceStatus,
+    FullRecordingSummary,
     OpenTodoCount,
     Recording,
     RecordingCollection,
+    RecordingDetail,
     RecordingSummary,
+    RecordingTranscript,
+    Speaker,
+    SummaryTodo,
 )
 from custom_components.mindclip.const import (
+    ATTR_CONFIG_ENTRY_ID,
+    ATTR_RECORDING_ID,
     CONF_API_SECRET,
     CONF_API_TOKEN,
     CONF_DEVICE_ID,
     DOMAIN,
+    SERVICE_GET_RECORDING,
+    SERVICE_GET_SUMMARY,
+    SERVICE_GET_TRANSCRIPT,
 )
 
 DEVICE_ID = "MINDCLIP-TEST-001"
@@ -69,9 +79,99 @@ async def test_setup_and_unload_entry(hass) -> None:
             "custom_components.mindclip.api.MindClipApi.async_get_summary",
             AsyncMock(return_value=RecordingSummary("recording-one", "Short summary")),
         ),
+        patch(
+            "custom_components.mindclip.api.MindClipApi.async_get_recording_detail",
+            AsyncMock(
+                return_value=RecordingDetail(
+                    recording_id="recording-one",
+                    display_name="Planning",
+                    recording_length=120,
+                    file_size=2048,
+                    device_id=DEVICE_ID,
+                    transcription_status=2,
+                    created_time=1000,
+                    folder_id=3,
+                    emoji="note",
+                    is_system=False,
+                )
+            ),
+        ) as detail_mock,
+        patch(
+            "custom_components.mindclip.api.MindClipApi.async_get_transcript",
+            AsyncMock(
+                return_value=RecordingTranscript(
+                    recording_id="recording-one",
+                    transcription_status=2,
+                    transcription='{"segments":[]}',
+                    speakers=(Speaker("spk_1", "Alice"),),
+                )
+            ),
+        ),
+        patch(
+            "custom_components.mindclip.api.MindClipApi.async_get_full_summary",
+            AsyncMock(
+                return_value=FullRecordingSummary(
+                    recording_id="recording-one",
+                    transcription_status=2,
+                    transcription="Full transcript",
+                    summary="Full summary",
+                    template="## Notes",
+                    atmosphere="Focused",
+                    todos=(
+                        SummaryTodo(
+                            "Send notes",
+                            2000,
+                            False,
+                            1000,
+                            "recording-one",
+                            DEVICE_ID,
+                            1,
+                        ),
+                    ),
+                    speakers=(Speaker("spk_1", "Alice", "#fff", "#000", 0.9),),
+                )
+            ),
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
+
+        assert hass.services.has_service(DOMAIN, SERVICE_GET_RECORDING)
+        assert hass.services.has_service(DOMAIN, SERVICE_GET_TRANSCRIPT)
+        assert hass.services.has_service(DOMAIN, SERVICE_GET_SUMMARY)
+        action_data = {
+            ATTR_CONFIG_ENTRY_ID: entry.entry_id,
+            ATTR_RECORDING_ID: " recording-one ",
+        }
+        recording_response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_GET_RECORDING,
+            action_data,
+            blocking=True,
+            return_response=True,
+        )
+        transcript_response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_GET_TRANSCRIPT,
+            action_data,
+            blocking=True,
+            return_response=True,
+        )
+        summary_response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_GET_SUMMARY,
+            action_data,
+            blocking=True,
+            return_response=True,
+        )
+
+        assert recording_response["display_name"] == "Planning"
+        assert transcript_response["transcription"] == '{"segments":[]}'
+        assert transcript_response["speakers"][0]["speaker_name"] == "Alice"
+        assert summary_response["summary"] == "Full summary"
+        assert summary_response["todos"][0]["title"] == "Send notes"
+        assert detail_mock.await_count == 3
+        detail_mock.assert_awaited_with("recording-one", DEVICE_ID)
 
     registry = er.async_get(hass)
     todo_entity_id = registry.async_get_entity_id(

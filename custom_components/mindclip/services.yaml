@@ -1,0 +1,38 @@
+get_recording:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: mindclip
+    recording_id:
+      required: true
+      example: "5f3a1c2e9b7d"
+      selector:
+        text:
+
+get_transcript:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: mindclip
+    recording_id:
+      required: true
+      example: "5f3a1c2e9b7d"
+      selector:
+        text:
+
+get_summary:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: mindclip
+    recording_id:
+      required: true
+      example: "5f3a1c2e9b7d"
+      selector:
+        text:

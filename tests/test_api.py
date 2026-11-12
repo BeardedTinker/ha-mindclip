@@ -8,6 +8,7 @@ import pytest
 
 from custom_components.mindclip import api as api_module
 from custom_components.mindclip.api import (
+    FullRecordingSummary,
     MindClipApi,
     MindClipAuthError,
     MindClipCommunicationError,
@@ -15,8 +16,16 @@ from custom_components.mindclip.api import (
     MindClipRateLimitError,
     MindClipResponseError,
     MindClipSchemaError,
+    RecordingDetail,
+    RecordingTranscript,
+    Speaker,
+    SummaryTodo,
 )
-from custom_components.mindclip.const import API_BASE_URL, SUMMARY_ATTRIBUTE_LIMIT
+from custom_components.mindclip.const import (
+    ACTION_MAX_TEXT_LENGTH,
+    API_BASE_URL,
+    SUMMARY_ATTRIBUTE_LIMIT,
+)
 
 DEVICE_ID = "MINDCLIP-TEST-001"
 
@@ -409,3 +418,182 @@ async def test_recordings_accept_missing_or_empty_title(display_name: object) ->
     assert recordings.latest is not None
     assert recordings.latest.title == "Untitled recording"
     assert recordings.latest_transcribed == recordings.latest
+
+
+@pytest.mark.asyncio
+async def test_recording_detail_is_validated_and_path_encoded() -> None:
+    """Recording details are complete, scoped, and safely requested."""
+    recording_id = "recording/with spaces"
+    session = FakeSession(
+        _success(
+            {
+                "id": recording_id,
+                "displayName": "Team sync",
+                "recordingLen": 1820,
+                "fileSize": 2931456,
+                "deviceID": DEVICE_ID.lower(),
+                "transcribeStatus": 2,
+                "createdTime": 1780060800000,
+                "folderID": 3,
+                "emoji": "note",
+                "isSystem": False,
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    detail = await client.async_get_recording_detail(recording_id, DEVICE_ID)
+
+    assert detail == RecordingDetail(
+        recording_id=recording_id,
+        display_name="Team sync",
+        recording_length=1820,
+        file_size=2931456,
+        device_id=DEVICE_ID.lower(),
+        transcription_status=2,
+        created_time=1780060800000,
+        folder_id=3,
+        emoji="note",
+        is_system=False,
+    )
+    assert session.calls[0]["url"].endswith("/recording%2Fwith%20spaces")
+
+
+@pytest.mark.asyncio
+async def test_recording_detail_rejects_another_device() -> None:
+    """A recording from another device cannot cross a config-entry boundary."""
+    session = FakeSession(
+        _success(
+            {
+                "id": "recording-one",
+                "displayName": "Team sync",
+                "recordingLen": 1,
+                "fileSize": 1,
+                "deviceID": "OTHER-DEVICE",
+                "transcribeStatus": 2,
+                "createdTime": 1,
+                "folderID": 1,
+                "emoji": "",
+                "isSystem": False,
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    with pytest.raises(MindClipSchemaError, match="another device"):
+        await client.async_get_recording_detail("recording-one", DEVICE_ID)
+
+
+@pytest.mark.asyncio
+async def test_transcript_preserves_encoded_text() -> None:
+    """Transcript content is returned unchanged rather than decoded or reshaped."""
+    encoded_transcript = (
+        '{"segments":[{"id":"s1","text":"Meetings Tomorrow",'
+        '"speaker":"speaker_1","start":0,"end":1200}]}'
+    )
+    session = FakeSession(
+        _success(
+            {
+                "transcribeStatus": 2,
+                "transcribeResult": encoded_transcript,
+                "speakers": [{"speaker": "speaker_1", "speakerName": "John"}],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    transcript = await client.async_get_transcript("recording-one")
+
+    assert transcript == RecordingTranscript(
+        recording_id="recording-one",
+        transcription_status=2,
+        transcription=encoded_transcript,
+        speakers=(Speaker(speaker="speaker_1", speaker_name="John"),),
+    )
+
+
+@pytest.mark.asyncio
+async def test_full_summary_returns_all_documented_content() -> None:
+    """The response-only summary model retains all documented private content."""
+    session = FakeSession(
+        _success(
+            {
+                "fileID": "recording-one",
+                "transcribeStatus": 2,
+                "transcribeResult": "Alice: Release next week.",
+                "aiSummaryResult": "Release next week.",
+                "aiTemplateResult": "## Notes",
+                "aiAtmoResult": "Focused",
+                "aiTodoList": [
+                    {
+                        "title": "Send notes",
+                        "reminderTime": 1780147200000,
+                        "isCompleted": False,
+                        "createdTime": 1780060800000,
+                        "fileID": "recording-one",
+                        "deviceID": DEVICE_ID,
+                        "category": 1,
+                    }
+                ],
+                "speakers": [
+                    {
+                        "speaker": "spk_1",
+                        "speakerName": "Alice",
+                        "lightColor": "#FFB300",
+                        "darkColor": "#FFD54F",
+                        "speakerConfidence": 0.92,
+                    }
+                ],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    summary = await client.async_get_full_summary("recording-one", DEVICE_ID)
+
+    assert summary == FullRecordingSummary(
+        recording_id="recording-one",
+        transcription_status=2,
+        transcription="Alice: Release next week.",
+        summary="Release next week.",
+        template="## Notes",
+        atmosphere="Focused",
+        todos=(
+            SummaryTodo(
+                title="Send notes",
+                reminder_time=1780147200000,
+                is_completed=False,
+                created_time=1780060800000,
+                recording_id="recording-one",
+                device_id=DEVICE_ID,
+                category=1,
+            ),
+        ),
+        speakers=(
+            Speaker(
+                speaker="spk_1",
+                speaker_name="Alice",
+                light_color="#FFB300",
+                dark_color="#FFD54F",
+                confidence=0.92,
+            ),
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_transcript_rejects_oversized_content() -> None:
+    """Unexpectedly large private action responses are rejected, not truncated."""
+    session = FakeSession(
+        _success(
+            {
+                "transcribeStatus": 2,
+                "transcribeResult": "x" * (ACTION_MAX_TEXT_LENGTH + 1),
+                "speakers": [],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    with pytest.raises(MindClipSchemaError, match="invalid transcription"):
+        await client.async_get_transcript("recording-one")

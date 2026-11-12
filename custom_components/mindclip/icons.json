@@ -1,0 +1,13 @@
+{
+  "services": {
+    "get_recording": {
+      "service": "mdi:information-outline"
+    },
+    "get_transcript": {
+      "service": "mdi:text-box-search-outline"
+    },
+    "get_summary": {
+      "service": "mdi:text-box-check-outline"
+    }
+  }
+}

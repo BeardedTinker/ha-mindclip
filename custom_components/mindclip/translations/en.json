@@ -88,6 +88,64 @@
       "calendar_not_writable": "Select a Calendar that supports creating events."
     }
   },
+  "services": {
+    "get_recording": {
+      "name": "Get recording details",
+      "description": "Returns metadata for one MindClip recording. The response is not stored in an entity, but may appear in automation traces.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "The configured MindClip that owns the recording."
+        },
+        "recording_id": {
+          "name": "Recording ID",
+          "description": "The SwitchBot recording ID to retrieve."
+        }
+      }
+    },
+    "get_transcript": {
+      "name": "Get recording transcript",
+      "description": "Returns the full private transcript and speaker list for one recording. The response is not stored in an entity, but may appear in automation traces.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "The configured MindClip that owns the recording."
+        },
+        "recording_id": {
+          "name": "Recording ID",
+          "description": "The SwitchBot recording ID to retrieve."
+        }
+      }
+    },
+    "get_summary": {
+      "name": "Get full recording summary",
+      "description": "Returns the full private transcript, AI results, To-Dos, and speakers for one recording. The response is not stored in an entity, but may appear in automation traces.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "The configured MindClip that owns the recording."
+        },
+        "recording_id": {
+          "name": "Recording ID",
+          "description": "The SwitchBot recording ID to retrieve."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "action_invalid_auth": {
+      "message": "SwitchBot rejected the saved MindClip credentials."
+    },
+    "action_rate_limited": {
+      "message": "SwitchBot rate-limited the MindClip request. Try again later."
+    },
+    "action_cannot_connect": {
+      "message": "Unable to connect to SwitchBot for this MindClip request."
+    },
+    "action_invalid_response": {
+      "message": "SwitchBot returned invalid or unavailable MindClip data."
+    }
+  },
   "entity": {
     "sensor": {
       "battery": {

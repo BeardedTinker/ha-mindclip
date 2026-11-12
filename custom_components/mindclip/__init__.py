@@ -5,14 +5,18 @@ from dataclasses import dataclass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 
 from .api import MindClipApi
 from .calendar_sync import MindClipCalendarSync
-from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID
+from .const import CONF_API_SECRET, CONF_API_TOKEN, CONF_DEVICE_ID, DOMAIN
 from .coordinator import MindClipCoordinator
+from .services import async_setup_services
 
 PLATFORMS = (Platform.SENSOR, Platform.BINARY_SENSOR, Platform.TODO, Platform.EVENT)
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 @dataclass(slots=True)
@@ -24,6 +28,12 @@ class MindClipRuntimeData:
 
 
 type MindClipConfigEntry = ConfigEntry[MindClipRuntimeData]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up response-only MindClip actions."""
+    async_setup_services(hass)
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MindClipConfigEntry) -> bool:

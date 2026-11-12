@@ -6,6 +6,7 @@ import asyncio
 import base64
 import hashlib
 import hmac
+import math
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -16,6 +17,9 @@ from uuid import uuid4
 import aiohttp
 
 from .const import (
+    ACTION_MAX_COLOR_LENGTH,
+    ACTION_MAX_LIST_ITEMS,
+    ACTION_MAX_TEXT_LENGTH,
     API_BASE_URL,
     API_MAX_PAGES,
     API_PAGE_SIZE,
@@ -134,6 +138,70 @@ class RecordingSummary:
 
     recording_id: str
     short_text: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingDetail:
+    """Validated details for one recording."""
+
+    recording_id: str
+    display_name: str
+    recording_length: int
+    file_size: int
+    device_id: str
+    transcription_status: int
+    created_time: int
+    folder_id: int
+    emoji: str
+    is_system: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Speaker:
+    """Validated speaker information."""
+
+    speaker: str
+    speaker_name: str
+    light_color: str | None = None
+    dark_color: str | None = None
+    confidence: float | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingTranscript:
+    """Validated transcript response for one recording."""
+
+    recording_id: str
+    transcription_status: int
+    transcription: str
+    speakers: tuple[Speaker, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class SummaryTodo:
+    """Validated To-Do extracted from one recording summary."""
+
+    title: str
+    reminder_time: int
+    is_completed: bool
+    created_time: int
+    recording_id: str
+    device_id: str
+    category: int
+
+
+@dataclass(frozen=True, slots=True)
+class FullRecordingSummary:
+    """Validated complete summary response for one recording."""
+
+    recording_id: str
+    transcription_status: int
+    transcription: str
+    summary: str
+    template: str
+    atmosphere: str
+    todos: tuple[SummaryTodo, ...]
+    speakers: tuple[Speaker, ...]
 
 
 class MindClipApi:
@@ -362,6 +430,117 @@ class MindClipApi:
         short_text = summary.strip()[:SUMMARY_ATTRIBUTE_LIMIT] or None
         return RecordingSummary(recording_id=recording_id, short_text=short_text)
 
+    async def async_get_recording_detail(
+        self, recording_id: str, expected_device_id: str
+    ) -> RecordingDetail:
+        """Get validated recording details scoped to one configured MindClip."""
+        body = await self._async_request(
+            f"/mindclip/recordings/{quote(recording_id, safe='')}"
+        )
+        response_recording_id = _require_bounded_string(
+            body.get("id"), "recording ID", MAX_STATE_LENGTH
+        )
+        if response_recording_id != recording_id:
+            raise MindClipSchemaError("SwitchBot returned a different recording")
+        device_id = _require_bounded_string(
+            body.get("deviceID"), "device ID", MAX_STATE_LENGTH
+        )
+        if normalize_device_id(device_id) != normalize_device_id(expected_device_id):
+            raise MindClipSchemaError(
+                "SwitchBot returned a recording from another device"
+            )
+        return RecordingDetail(
+            recording_id=response_recording_id,
+            display_name=_require_bounded_string(
+                body.get("displayName"),
+                "recording display name",
+                MAX_STATE_LENGTH,
+                allow_empty=True,
+            ),
+            recording_length=_require_non_negative_integer(
+                body.get("recordingLen"), "recording length"
+            ),
+            file_size=_require_non_negative_integer(body.get("fileSize"), "file size"),
+            device_id=device_id,
+            transcription_status=_parse_transcription_status(
+                body.get("transcribeStatus")
+            ),
+            created_time=_require_non_negative_integer(
+                body.get("createdTime"), "recording creation time"
+            ),
+            folder_id=_require_non_negative_integer(body.get("folderID"), "folder ID"),
+            emoji=_require_bounded_string(
+                body.get("emoji"), "recording emoji", MAX_STATE_LENGTH, allow_empty=True
+            ),
+            is_system=_require_boolean(body.get("isSystem"), "system-folder state"),
+        )
+
+    async def async_get_transcript(self, recording_id: str) -> RecordingTranscript:
+        """Get a validated transcript without interpreting its text."""
+        body = await self._async_request(
+            f"/mindclip/recordings/{quote(recording_id, safe='')}/transcript"
+        )
+        return RecordingTranscript(
+            recording_id=recording_id,
+            transcription_status=_parse_transcription_status(
+                body.get("transcribeStatus")
+            ),
+            transcription=_require_bounded_string(
+                body.get("transcribeResult"),
+                "transcription",
+                ACTION_MAX_TEXT_LENGTH,
+                allow_empty=True,
+            ),
+            speakers=_parse_speakers(body.get("speakers"), full=False),
+        )
+
+    async def async_get_full_summary(
+        self, recording_id: str, expected_device_id: str
+    ) -> FullRecordingSummary:
+        """Get a validated complete summary without storing private content."""
+        body = await self._async_request(
+            f"/mindclip/summaries/{quote(recording_id, safe='')}"
+        )
+        response_recording_id = _require_bounded_string(
+            body.get("fileID"), "recording ID", MAX_STATE_LENGTH
+        )
+        if response_recording_id != recording_id:
+            raise MindClipSchemaError("SwitchBot returned a different recording")
+        return FullRecordingSummary(
+            recording_id=response_recording_id,
+            transcription_status=_parse_transcription_status(
+                body.get("transcribeStatus")
+            ),
+            transcription=_require_bounded_string(
+                body.get("transcribeResult"),
+                "transcription",
+                ACTION_MAX_TEXT_LENGTH,
+                allow_empty=True,
+            ),
+            summary=_require_bounded_string(
+                body.get("aiSummaryResult"),
+                "AI summary",
+                ACTION_MAX_TEXT_LENGTH,
+                allow_empty=True,
+            ),
+            template=_require_bounded_string(
+                body.get("aiTemplateResult"),
+                "AI template",
+                ACTION_MAX_TEXT_LENGTH,
+                allow_empty=True,
+            ),
+            atmosphere=_require_bounded_string(
+                body.get("aiAtmoResult"),
+                "AI atmosphere",
+                ACTION_MAX_TEXT_LENGTH,
+                allow_empty=True,
+            ),
+            todos=_parse_summary_todos(
+                body.get("aiTodoList"), recording_id, expected_device_id
+            ),
+            speakers=_parse_speakers(body.get("speakers"), full=True),
+        )
+
 
 def normalize_device_id(device_id: str) -> str:
     """Normalize a stable SwitchBot device identifier."""
@@ -431,6 +610,109 @@ def _parse_todo(item: Mapping[str, Any]) -> MindClipTodo:
     )
 
 
+def _parse_speakers(value: object, *, full: bool) -> tuple[Speaker, ...]:
+    """Parse a bounded speaker collection."""
+    items = _require_bounded_list(value, "speaker list")
+    speakers: list[Speaker] = []
+    for raw_item in items:
+        item = _require_mapping(raw_item, "speaker")
+        light_color = None
+        dark_color = None
+        confidence = None
+        if full:
+            light_color = _require_bounded_string(
+                item.get("lightColor"),
+                "speaker light color",
+                ACTION_MAX_COLOR_LENGTH,
+                allow_empty=True,
+            )
+            dark_color = _require_bounded_string(
+                item.get("darkColor"),
+                "speaker dark color",
+                ACTION_MAX_COLOR_LENGTH,
+                allow_empty=True,
+            )
+            confidence = _require_confidence(item.get("speakerConfidence"))
+        speakers.append(
+            Speaker(
+                speaker=_require_bounded_string(
+                    item.get("speaker"), "speaker ID", MAX_STATE_LENGTH
+                ),
+                speaker_name=_require_bounded_string(
+                    item.get("speakerName"),
+                    "speaker name",
+                    MAX_STATE_LENGTH,
+                    allow_empty=True,
+                ),
+                light_color=light_color,
+                dark_color=dark_color,
+                confidence=confidence,
+            )
+        )
+    return tuple(speakers)
+
+
+def _parse_summary_todos(
+    value: object, expected_recording_id: str, expected_device_id: str
+) -> tuple[SummaryTodo, ...]:
+    """Parse a bounded collection of summary To-Dos."""
+    items = _require_bounded_list(value, "summary To-Do list")
+    todos: list[SummaryTodo] = []
+    for raw_item in items:
+        item = _require_mapping(raw_item, "summary To-Do")
+        todo = SummaryTodo(
+            title=_require_bounded_string(
+                item.get("title"), "To-Do title", MAX_STATE_LENGTH
+            ),
+            reminder_time=_require_non_negative_integer(
+                item.get("reminderTime"), "To-Do reminder time"
+            ),
+            is_completed=_require_boolean(
+                item.get("isCompleted"), "To-Do completion state"
+            ),
+            created_time=_require_non_negative_integer(
+                item.get("createdTime"), "To-Do creation time"
+            ),
+            recording_id=_require_bounded_string(
+                item.get("fileID"), "recording ID", MAX_STATE_LENGTH
+            ),
+            device_id=_require_bounded_string(
+                item.get("deviceID"), "device ID", MAX_STATE_LENGTH
+            ),
+            category=_require_non_negative_integer(
+                item.get("category"), "To-Do category"
+            ),
+        )
+        if todo.recording_id != expected_recording_id or normalize_device_id(
+            todo.device_id
+        ) != normalize_device_id(expected_device_id):
+            raise MindClipSchemaError(
+                "SwitchBot returned summary data from another recording or device"
+            )
+        todos.append(todo)
+    return tuple(todos)
+
+
+def _require_bounded_list(value: object, field: str) -> list[object]:
+    """Return a bounded list or raise a sanitized schema error."""
+    if not isinstance(value, list) or len(value) > ACTION_MAX_LIST_ITEMS:
+        raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
+    return value
+
+
+def _require_bounded_string(
+    value: object, field: str, maximum: int, *, allow_empty: bool = False
+) -> str:
+    """Return a bounded string or raise a sanitized schema error."""
+    if (
+        not isinstance(value, str)
+        or (not allow_empty and not value)
+        or len(value) > maximum
+    ):
+        raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
+    return value
+
+
 def _require_mapping(value: object, field: str) -> Mapping[str, Any]:
     """Return a mapping or raise a sanitized schema error."""
     if not isinstance(value, Mapping):
@@ -458,6 +740,33 @@ def _require_non_negative_integer(value: object, field: str) -> int:
     if result < 0:
         raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
     return result
+
+
+def _require_boolean(value: object, field: str) -> bool:
+    """Return a boolean or raise a sanitized schema error."""
+    if not isinstance(value, bool):
+        raise MindClipSchemaError(f"SwitchBot returned an invalid {field}")
+    return value
+
+
+def _require_confidence(value: object) -> float:
+    """Return a finite confidence value from zero through one."""
+    if (
+        not isinstance(value, int | float)
+        or isinstance(value, bool)
+        or not math.isfinite(value)
+        or not 0 <= value <= 1
+    ):
+        raise MindClipSchemaError("SwitchBot returned an invalid speaker confidence")
+    return float(value)
+
+
+def _parse_transcription_status(value: object) -> int:
+    """Parse a documented transcription status."""
+    status = _require_non_negative_integer(value, "transcription status")
+    if status > 5:
+        raise MindClipSchemaError("SwitchBot returned an invalid transcription status")
+    return status
 
 
 def _parse_binary_status(value: object, field: str) -> bool:
