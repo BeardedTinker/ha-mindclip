@@ -89,6 +89,20 @@
     }
   },
   "services": {
+    "list_recordings": {
+      "name": "Prikaži posljednje snimke",
+      "description": "Vraća ograničene metapodatke najnovijih MindClip snimki. Transkripti i sažeci nisu uključeni.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "Konfigurirani MindClip čije snimke treba prikazati."
+        },
+        "limit": {
+          "name": "Najveći broj snimki",
+          "description": "Broj posljednjih snimki koje treba vratiti, od 1 do 50."
+        }
+      }
+    },
     "get_recording": {
       "name": "Dohvati detalje snimke",
       "description": "Vraća metapodatke jedne MindClip snimke. Odgovor se ne sprema u entitet, ali se može pojaviti u tragovima automatizacije.",

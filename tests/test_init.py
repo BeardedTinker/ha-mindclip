@@ -2,6 +2,7 @@
 
 from unittest.mock import AsyncMock, patch
 
+from homeassistant.components.lovelace.const import LOVELACE_DATA
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -13,6 +14,8 @@ from custom_components.mindclip.api import (
     Recording,
     RecordingCollection,
     RecordingDetail,
+    RecordingList,
+    RecordingListItem,
     RecordingSummary,
     RecordingTranscript,
     Speaker,
@@ -20,6 +23,7 @@ from custom_components.mindclip.api import (
 )
 from custom_components.mindclip.const import (
     ATTR_CONFIG_ENTRY_ID,
+    ATTR_LIMIT,
     ATTR_RECORDING_ID,
     CONF_API_SECRET,
     CONF_API_TOKEN,
@@ -28,7 +32,9 @@ from custom_components.mindclip.const import (
     SERVICE_GET_RECORDING,
     SERVICE_GET_SUMMARY,
     SERVICE_GET_TRANSCRIPT,
+    SERVICE_LIST_RECORDINGS,
 )
+from custom_components.mindclip.frontend import CARD_URL_PATH, CARD_VERSION
 
 DEVICE_ID = "MINDCLIP-TEST-001"
 
@@ -97,6 +103,20 @@ async def test_setup_and_unload_entry(hass) -> None:
             ),
         ) as detail_mock,
         patch(
+            "custom_components.mindclip.api.MindClipApi.async_list_recordings",
+            AsyncMock(
+                return_value=RecordingList(
+                    recordings=(
+                        RecordingListItem(
+                            "recording-one", "Planning", 1000, 120, 2048, 2
+                        ),
+                    ),
+                    total=1,
+                    more=False,
+                )
+            ),
+        ) as list_mock,
+        patch(
             "custom_components.mindclip.api.MindClipApi.async_get_transcript",
             AsyncMock(
                 return_value=RecordingTranscript(
@@ -139,10 +159,21 @@ async def test_setup_and_unload_entry(hass) -> None:
         assert hass.services.has_service(DOMAIN, SERVICE_GET_RECORDING)
         assert hass.services.has_service(DOMAIN, SERVICE_GET_TRANSCRIPT)
         assert hass.services.has_service(DOMAIN, SERVICE_GET_SUMMARY)
+        assert hass.services.has_service(DOMAIN, SERVICE_LIST_RECORDINGS)
         action_data = {
             ATTR_CONFIG_ENTRY_ID: entry.entry_id,
             ATTR_RECORDING_ID: " recording-one ",
         }
+        list_response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_LIST_RECORDINGS,
+            {
+                ATTR_CONFIG_ENTRY_ID: entry.entry_id,
+                ATTR_LIMIT: 12,
+            },
+            blocking=True,
+            return_response=True,
+        )
         recording_response = await hass.services.async_call(
             DOMAIN,
             SERVICE_GET_RECORDING,
@@ -165,6 +196,9 @@ async def test_setup_and_unload_entry(hass) -> None:
             return_response=True,
         )
 
+        assert list_response["recordings"][0]["title"] == "Planning"
+        assert list_response["total"] == 1
+        list_mock.assert_awaited_once_with(DEVICE_ID, 12)
         assert recording_response["display_name"] == "Planning"
         assert transcript_response["transcription"] == '{"segments":[]}'
         assert transcript_response["speakers"][0]["speaker_name"] == "Alice"
@@ -172,6 +206,12 @@ async def test_setup_and_unload_entry(hass) -> None:
         assert summary_response["todos"][0]["title"] == "Send notes"
         assert detail_mock.await_count == 3
         detail_mock.assert_awaited_with("recording-one", DEVICE_ID)
+
+        resources = hass.data[LOVELACE_DATA].resources
+        assert any(
+            item["url"] == f"{CARD_URL_PATH}?v={CARD_VERSION}"
+            for item in resources.async_items()
+        )
 
     registry = er.async_get(hass)
     todo_entity_id = registry.async_get_entity_id(

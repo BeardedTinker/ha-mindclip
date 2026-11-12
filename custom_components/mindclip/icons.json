@@ -1,5 +1,8 @@
 {
   "services": {
+    "list_recordings": {
+      "service": "mdi:playlist-music-outline"
+    },
     "get_recording": {
       "service": "mdi:information-outline"
     },

@@ -19,17 +19,22 @@ from .api import (
     MindClipCommunicationError,
     MindClipRateLimitError,
     RecordingDetail,
+    RecordingList,
     RecordingTranscript,
 )
 from .const import (
     ATTR_CONFIG_ENTRY_ID,
+    ATTR_LIMIT,
     ATTR_RECORDING_ID,
+    CARD_DEFAULT_RECORDING_LIMIT,
+    CARD_MAX_RECORDING_LIMIT,
     CONF_DEVICE_ID,
     DOMAIN,
     MAX_STATE_LENGTH,
     SERVICE_GET_RECORDING,
     SERVICE_GET_SUMMARY,
     SERVICE_GET_TRANSCRIPT,
+    SERVICE_LIST_RECORDINGS,
 )
 
 
@@ -45,6 +50,15 @@ ACTION_SCHEMA = vol.Schema(
     {
         vol.Required(ATTR_CONFIG_ENTRY_ID): cv.string,
         vol.Required(ATTR_RECORDING_ID): _recording_id,
+    }
+)
+
+LIST_RECORDINGS_SCHEMA = vol.Schema(
+    {
+        vol.Required(ATTR_CONFIG_ENTRY_ID): cv.string,
+        vol.Optional(ATTR_LIMIT, default=CARD_DEFAULT_RECORDING_LIMIT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=CARD_MAX_RECORDING_LIMIT)
+        ),
     }
 )
 
@@ -71,6 +85,15 @@ async def _async_api_call[T](awaitable: Awaitable[T]) -> T:
 def _recording_response(detail: RecordingDetail) -> dict[str, Any]:
     """Serialize recording details for an action response."""
     return asdict(detail)
+
+
+def _recording_list_response(recording_list: RecordingList) -> dict[str, Any]:
+    """Serialize recent recordings for an action response."""
+    return {
+        "recordings": [asdict(recording) for recording in recording_list.recordings],
+        "total": recording_list.total,
+        "more": recording_list.more,
+    }
 
 
 def _transcript_response(transcript: RecordingTranscript) -> dict[str, Any]:
@@ -105,6 +128,18 @@ def _summary_response(summary: FullRecordingSummary) -> dict[str, Any]:
 
 def async_setup_services(hass: HomeAssistant) -> None:
     """Register response-only MindClip actions."""
+
+    async def async_list_recordings(call: ServiceCall) -> dict[str, Any]:
+        """Return bounded metadata for recent recordings."""
+        entry = service.async_get_config_entry(
+            hass, DOMAIN, call.data[ATTR_CONFIG_ENTRY_ID]
+        )
+        recording_list = await _async_api_call(
+            entry.runtime_data.api.async_list_recordings(
+                entry.data[CONF_DEVICE_ID], call.data[ATTR_LIMIT]
+            )
+        )
+        return _recording_list_response(recording_list)
 
     async def async_get_recording(call: ServiceCall) -> dict[str, Any]:
         """Return validated recording details."""
@@ -149,6 +184,13 @@ def async_setup_services(hass: HomeAssistant) -> None:
         )
         return _summary_response(summary)
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_LIST_RECORDINGS,
+        async_list_recordings,
+        schema=LIST_RECORDINGS_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
+    )
     hass.services.async_register(
         DOMAIN,
         SERVICE_GET_RECORDING,
