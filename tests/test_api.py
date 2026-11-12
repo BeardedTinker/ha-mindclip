@@ -17,6 +17,8 @@ from custom_components.mindclip.api import (
     MindClipResponseError,
     MindClipSchemaError,
     RecordingDetail,
+    RecordingList,
+    RecordingListItem,
     RecordingTranscript,
     Speaker,
     SummaryTodo,
@@ -388,6 +390,84 @@ async def test_recordings_track_latest_and_latest_transcribed() -> None:
     assert recordings.latest.recording_id == "recording-new"
     assert recordings.latest_transcribed is not None
     assert recordings.latest_transcribed.recording_id == "recording-ready"
+
+
+@pytest.mark.asyncio
+async def test_recent_recording_list_is_bounded_sorted_and_device_scoped() -> None:
+    """The card list uses one bounded page with validated metadata."""
+    session = FakeSession(
+        _success(
+            {
+                "total": 7,
+                "pages": 2,
+                "list": [
+                    {
+                        "id": "recording-old",
+                        "displayName": "Older recording",
+                        "recordingLen": 65,
+                        "fileSize": 1024,
+                        "deviceID": DEVICE_ID.lower(),
+                        "transcribeStatus": 2,
+                        "createdTime": 1000,
+                    },
+                    {
+                        "id": "recording-new",
+                        "displayName": "New recording",
+                        "recordingLen": 125,
+                        "fileSize": 2048,
+                        "deviceID": DEVICE_ID,
+                        "transcribeStatus": 1,
+                        "createdTime": 2000,
+                    },
+                ],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    result = await client.async_list_recordings(DEVICE_ID, 2)
+
+    assert result == RecordingList(
+        recordings=(
+            RecordingListItem("recording-new", "New recording", 2000, 125, 2048, 1),
+            RecordingListItem("recording-old", "Older recording", 1000, 65, 1024, 2),
+        ),
+        total=7,
+        more=True,
+    )
+    assert session.calls[0]["params"] == {
+        "deviceID": DEVICE_ID,
+        "pageNum": 1,
+        "pageSize": 2,
+    }
+
+
+@pytest.mark.asyncio
+async def test_recent_recording_list_rejects_another_device() -> None:
+    """List responses cannot cross the configured MindClip boundary."""
+    session = FakeSession(
+        _success(
+            {
+                "total": 1,
+                "pages": 1,
+                "list": [
+                    {
+                        "id": "recording-one",
+                        "displayName": "Unexpected",
+                        "recordingLen": 1,
+                        "fileSize": 1,
+                        "deviceID": "OTHER-DEVICE",
+                        "transcribeStatus": 2,
+                        "createdTime": 1,
+                    }
+                ],
+            }
+        )
+    )
+    client = MindClipApi(session, "token", "secret")  # type: ignore[arg-type]
+
+    with pytest.raises(MindClipSchemaError, match="another device"):
+        await client.async_list_recordings(DEVICE_ID, 10)
 
 
 @pytest.mark.asyncio

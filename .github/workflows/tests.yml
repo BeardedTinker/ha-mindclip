@@ -21,4 +21,5 @@ jobs:
       - run: python -m pip install --requirement requirements_test.txt
       - run: ruff format --check .
       - run: ruff check .
+      - run: node --check custom_components/mindclip/www/mindclip-card.js
       - run: pytest

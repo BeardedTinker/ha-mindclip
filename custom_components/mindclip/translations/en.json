@@ -89,6 +89,20 @@
     }
   },
   "services": {
+    "list_recordings": {
+      "name": "List recent recordings",
+      "description": "Returns bounded metadata for the most recent MindClip recordings. No transcript or summary content is included.",
+      "fields": {
+        "config_entry_id": {
+          "name": "MindClip",
+          "description": "The configured MindClip whose recordings should be listed."
+        },
+        "limit": {
+          "name": "Maximum recordings",
+          "description": "Number of recent recordings to return, from 1 through 50."
+        }
+      }
+    },
     "get_recording": {
       "name": "Get recording details",
       "description": "Returns metadata for one MindClip recording. The response is not stored in an entity, but may appear in automation traces.",

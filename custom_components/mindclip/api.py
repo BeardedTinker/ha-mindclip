@@ -114,6 +114,27 @@ class RecordingCollection:
 
 
 @dataclass(frozen=True, slots=True)
+class RecordingListItem:
+    """Validated recording metadata for an on-demand list."""
+
+    recording_id: str
+    title: str
+    created_time: int
+    recording_length: int
+    file_size: int
+    transcription_status: int
+
+
+@dataclass(frozen=True, slots=True)
+class RecordingList:
+    """Bounded recent recording list for action and card clients."""
+
+    recordings: tuple[RecordingListItem, ...]
+    total: int
+    more: bool
+
+
+@dataclass(frozen=True, slots=True)
 class MindClipTodo:
     """Minimal To-Do data required for local pending tracking."""
 
@@ -416,6 +437,31 @@ class MindClipApi:
             truncated=pages > API_MAX_PAGES,
         )
 
+    async def async_list_recordings(self, device_id: str, limit: int) -> RecordingList:
+        """Get one bounded page of recent recording metadata."""
+        body = await self._async_request(
+            "/mindclip/recordings",
+            params={
+                "deviceID": device_id,
+                "pageNum": 1,
+                "pageSize": limit,
+            },
+        )
+        pages, items = _parse_page(body)
+        total = _require_non_negative_integer(body.get("total"), "total")
+        recordings = tuple(
+            sorted(
+                (_parse_recording_list_item(item, device_id) for item in items),
+                key=lambda item: item.created_time,
+                reverse=True,
+            )[:limit]
+        )
+        return RecordingList(
+            recordings=recordings,
+            total=total,
+            more=pages > 1 or total > len(recordings),
+        )
+
     async def async_get_summary(self, recording_id: str) -> RecordingSummary:
         """Get only the short AI summary required by the summary entity."""
         body = await self._async_request(
@@ -588,6 +634,39 @@ def _parse_recording(item: Mapping[str, Any]) -> Recording:
         title=title,
         created_time=created_time,
         transcription_status=transcription_status,
+    )
+
+
+def _parse_recording_list_item(
+    item: Mapping[str, Any], expected_device_id: str
+) -> RecordingListItem:
+    """Return validated metadata for a recent-recordings response."""
+    device_id = _require_bounded_string(
+        item.get("deviceID"), "device ID", MAX_STATE_LENGTH
+    )
+    if normalize_device_id(device_id) != normalize_device_id(expected_device_id):
+        raise MindClipSchemaError("SwitchBot returned a recording from another device")
+    raw_title = item.get("displayName")
+    title = (
+        raw_title.strip()
+        if isinstance(raw_title, str) and raw_title.strip()
+        else _UNTITLED_RECORDING
+    )
+    if len(title) > MAX_STATE_LENGTH:
+        raise MindClipSchemaError("SwitchBot returned an invalid recording title")
+    return RecordingListItem(
+        recording_id=_require_bounded_string(
+            item.get("id"), "recording ID", MAX_STATE_LENGTH
+        ),
+        title=title,
+        created_time=_require_non_negative_integer(
+            item.get("createdTime"), "recording creation time"
+        ),
+        recording_length=_require_non_negative_integer(
+            item.get("recordingLen"), "recording length"
+        ),
+        file_size=_require_non_negative_integer(item.get("fileSize"), "file size"),
+        transcription_status=_parse_transcription_status(item.get("transcribeStatus")),
     )
 
 
